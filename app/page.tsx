@@ -3,22 +3,6 @@ import Link from "next/link";
 export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white flex flex-col">
-      
-      {/* Navbar */}
-      <nav className="flex justify-between items-center p-6 border-b border-gray-800">
-        <h1 className="text-xl font-bold">Urban EV</h1>
-        <div className="space-x-4">
-          <Link href="/" className="text-gray-300 hover:text-white">
-            Home
-          </Link>
-          <Link href="/map" className="text-gray-300 hover:text-white">
-            Map
-          </Link>
-          <Link href="/login" className="text-gray-300 hover:text-white">
-            Login
-          </Link>
-        </div>
-      </nav>
 
       {/* Hero Section */}
       <section className="flex flex-1 items-center justify-center text-center px-6">
