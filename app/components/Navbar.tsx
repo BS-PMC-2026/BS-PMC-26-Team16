@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import LogoutButton from './LogoutButton'
 
 export default async function Navbar() {
   const supabase = await createClient()
@@ -22,16 +23,31 @@ export default async function Navbar() {
   return (
     <nav className="flex justify-between items-center p-6 border-b border-gray-800">
       <h1 className="text-xl font-bold">Urban EV</h1>
+
       <div className="flex items-center gap-6">
         <Link href="/" className="text-gray-300 hover:text-white">Home</Link>
         <Link href="/map" className="text-gray-300 hover:text-white">Map</Link>
+
+        {/* 👇 אם לא מחובר - תראה Register */}
+        {!user && (
+          <Link href="/register" className="bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-full text-sm font-medium transition">
+            Register
+          </Link>
+        )}
+
         {user ? (
-          <span className="bg-blue-600 px-4 py-1.5 rounded-full text-sm font-medium">
-            {greeting}
-          </span>
+          <>
+            <span className="bg-blue-600 px-4 py-1.5 rounded-full text-sm font-medium">
+              {greeting}
+            </span>
+
+            {/* 👇 כפתור התנתקות */}
+            <LogoutButton />
+          </>
         ) : (
           <>
             <span className="text-gray-500 text-sm">{greeting}</span>
+
             <Link href="/login" className="bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-full text-sm font-medium transition">
               Login
             </Link>
