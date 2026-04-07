@@ -21,37 +21,21 @@ export default async function Navbar() {
   }
 
   return (
-    <nav className="flex justify-between items-center p-6 border-b border-gray-800">
+    <nav className="flex flex-wrap justify-between items-center px-4 py-3 gap-y-2 border-b border-gray-800">
       <h1 className="text-xl font-bold">Urban EV</h1>
 
-      <div className="flex items-center gap-6">
-        <Link href="/" className="text-gray-300 hover:text-white">Home</Link>
-        <Link href="/map" className="text-gray-300 hover:text-white">Map</Link>
-
-        {/* 👇 אם לא מחובר - תראה Register */}
-        {!user && (
-          <Link href="/register" className="bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-full text-sm font-medium transition">
-            Register
-          </Link>
-        )}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Link href="/" className="text-gray-300 hover:text-white text-sm">Home</Link>
+        <Link href="/map" className="text-gray-300 hover:text-white text-sm">Map</Link>
 
         {user ? (
           <>
-            <span className="bg-blue-600 px-4 py-1.5 rounded-full text-sm font-medium">
-              {greeting}
-            </span>
-
-            {/* 👇 כפתור התנתקות */}
+            <span className="text-gray-300 text-sm">{greeting}</span>
+            <Link href="/User" className="text-gray-300 hover:text-white text-sm">Dashboard</Link>
             <LogoutButton />
           </>
         ) : (
-          <>
-            <span className="text-gray-500 text-sm">{greeting}</span>
-
-            <Link href="/login" className="bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-full text-sm font-medium transition">
-              Login
-            </Link>
-          </>
+          <Link href="/login" className="text-gray-300 hover:text-white text-sm">Login</Link>
         )}
       </div>
     </nav>

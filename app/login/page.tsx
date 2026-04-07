@@ -102,6 +102,7 @@ export default function LoginPage() {
 
       setTimeout(() => {
         router.push("/map");
+        router.refresh();
       }, 2000);
     } catch {
       setMessage("Something went wrong. Please try again.");

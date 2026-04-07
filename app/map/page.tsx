@@ -19,11 +19,37 @@ export default function MapPage() {
 
     const center = await getUserLocation()
 
+    const israelBounds = { north: 33.4, south: 29.4, east: 35.9, west: 34.2 }
+
     const map = new google.maps.Map(mapRef.current, {
       center,
       zoom: 15,
       mapId: 'urban-ev-map',
+      restriction: {
+        latLngBounds: israelBounds,
+        strictBounds: true,
+      },
     })
+
+    // Red overlay outside Israel bounds
+    const worldBounds = { north: 85, south: -85, east: 180, west: -180 }
+    const overlayRegions = [
+      { north: worldBounds.north, south: israelBounds.north, east: worldBounds.east, west: worldBounds.west },
+      { north: israelBounds.south, south: worldBounds.south, east: worldBounds.east, west: worldBounds.west },
+      { north: israelBounds.north, south: israelBounds.south, east: worldBounds.east, west: israelBounds.east },
+      { north: israelBounds.north, south: israelBounds.south, east: israelBounds.west, west: worldBounds.west },
+    ]
+    for (const bounds of overlayRegions) {
+      new google.maps.Rectangle({
+        bounds,
+        map,
+        fillColor: '#ff0000',
+        fillOpacity: 0.35,
+        strokeWeight: 0,
+        clickable: false,
+      })
+    }
+
 
     const { AdvancedMarkerElement } = await google.maps.importLibrary('marker') as google.maps.MarkerLibrary
 
@@ -31,6 +57,19 @@ export default function MapPage() {
     userPin.innerHTML = '🧍'
     userPin.style.cssText = 'font-size:28px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));'
     new AdvancedMarkerElement({ position: center, map, title: 'You are here', content: userPin })
+
+    // "My Location" button
+    const locationBtn = document.createElement('button')
+    locationBtn.innerHTML = '📍'
+    locationBtn.title = 'Go to my location'
+    locationBtn.style.cssText = 'margin:10px;width:40px;height:40px;border-radius:50%;border:none;background:#fff;font-size:20px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;'
+    locationBtn.addEventListener('click', () => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => map.panTo({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => map.panTo(center)
+      )
+    })
+    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(locationBtn)
 
     // Load charging stations
     const res = await fetch('/AGG_CHARGE_STATIONS.geojson')
