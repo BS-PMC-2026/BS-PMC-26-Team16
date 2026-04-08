@@ -7,16 +7,18 @@ export default async function Navbar() {
   const { data: { user } } = await supabase.auth.getUser()
 
   let greeting = 'Hello Guest'
+  let isAdmin = false
 
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('first_name, last_name')
+      .select('first_name, last_name, user_type')
       .eq('id', user.id)
       .single()
 
     if (profile) {
       greeting = `Hello ${profile.first_name} ${profile.last_name}`
+      isAdmin = profile.user_type === 'admin'
     }
   }
 
@@ -31,11 +33,26 @@ export default async function Navbar() {
         {user ? (
           <>
             <span className="text-gray-300 text-sm">{greeting}</span>
-            <Link href="/User" className="text-gray-300 hover:text-white text-sm">Dashboard</Link>
+
+            <Link href="/User" className="text-gray-300 hover:text-white text-sm">
+              Dashboard
+            </Link>
+
+            {isAdmin && (
+              <Link
+                href="/admin/approvals"
+                className="text-yellow-400 hover:text-yellow-300 text-sm font-semibold"
+              >
+                Approvals
+              </Link>
+            )}
+
             <LogoutButton />
           </>
         ) : (
-          <Link href="/login" className="text-gray-300 hover:text-white text-sm">Login</Link>
+          <Link href="/login" className="text-gray-300 hover:text-white text-sm">
+            Login
+          </Link>
         )}
       </div>
     </nav>
