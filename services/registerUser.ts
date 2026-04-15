@@ -55,16 +55,22 @@ export async function registerUser(input: RegisterUserInput) {
 
   const { data: profileData, error: profileError } = await supabase
     .from("profiles")
-    .update({
-      first_name: input.first_name.trim(),
-      last_name: input.last_name.trim(),
-      phone: input.phone.trim(),
-      id_number: input.id_number.trim(),
-      user_type: input.user_type,
-      request_reason: input.request_reason.trim(),
-      is_approved: false,
-    })
-    .eq("id", user.id)
+    .upsert(
+      {
+        id: user.id,
+        first_name: input.first_name.trim(),
+        last_name: input.last_name.trim(),
+        phone: input.phone.trim(),
+        email: normalizedEmail,
+        id_number: input.id_number.trim(),
+        user_type: input.user_type,
+        request_reason: input.request_reason.trim(),
+        is_approved: false,
+      },
+      {
+        onConflict: "id",
+      }
+    )
     .select()
     .single();
 

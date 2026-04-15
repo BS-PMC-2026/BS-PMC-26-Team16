@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import AdminProfileForm from './AdminProfileForm'
+import CustomerProfileForm from './CustomerProfileForm'
+import ProviderProfileForm from './ProviderProfileForm'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -21,27 +23,52 @@ export default async function DashboardPage() {
   if (
     error ||
     !profile ||
-    profile.user_type !== 'admin' ||
-    profile.is_approved !== true
+    !['admin', 'customer', 'provider'].includes(profile.user_type)
   ) {
     redirect('/')
   }
 
   const fullName = `${profile.first_name} ${profile.last_name}`.trim()
+  const isAdmin = profile.user_type === 'admin'
+  const isCustomer = profile.user_type === 'customer'
+  const profileTitle = isAdmin
+    ? 'Admin Profile'
+    : isCustomer
+      ? 'Customer Profile'
+      : 'Provider Profile'
+  const profileHeading = isAdmin
+    ? 'Manage your account details'
+    : isCustomer
+      ? 'Keep your customer profile up to date'
+      : 'Keep your provider profile up to date'
+  const profileDescription = isAdmin
+    ? 'Review your personal information, update your name, and change your password securely from one place.'
+    : isCustomer
+      ? 'Review your personal information, update your name, and keep your customer login secure from one place.'
+      : 'Review your personal information, update your name, and keep your provider login secure from one place.'
+  const roleLabel = isAdmin
+    ? 'Administrator'
+    : isCustomer
+      ? 'Customer'
+      : 'Service Provider'
+  const isApproved = profile.is_approved === true
+  const statusLabel = isApproved ? 'Approved' : 'Pending approval'
+  const statusClasses = isApproved
+    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+    : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#155e75_0%,#020617_35%,#000000_100%)] text-white">
       <section className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-12">
         <div className="mb-10">
           <div className="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1 text-sm font-medium text-cyan-100">
-            Admin Profile
+            {profileTitle}
           </div>
           <h1 className="mt-5 text-4xl font-bold tracking-tight">
-            Manage your account details
+            {profileHeading}
           </h1>
           <p className="mt-3 max-w-2xl text-base text-gray-300">
-            Review your personal information, update your name, and change your
-            password securely from one place.
+            {profileDescription}
           </p>
         </div>
 
@@ -66,25 +93,43 @@ export default async function DashboardPage() {
               <div>
                 <p className="text-sm text-gray-400">Role</p>
                 <p className="mt-1 text-base font-medium text-cyan-100">
-                  Administrator
+                  {roleLabel}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-gray-400">Status</p>
-                <span className="mt-2 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-200">
-                  Approved
+                <span
+                  className={`mt-2 inline-flex rounded-full border px-3 py-1 text-sm font-medium ${statusClasses}`}
+                >
+                  {statusLabel}
                 </span>
               </div>
             </div>
           </aside>
 
           <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-cyan-950/20 backdrop-blur">
-            <AdminProfileForm
-              firstName={profile.first_name ?? ''}
-              lastName={profile.last_name ?? ''}
-              email={profile.email ?? user.email ?? ''}
-              role="Administrator"
-            />
+            {isAdmin ? (
+              <AdminProfileForm
+                firstName={profile.first_name ?? ''}
+                lastName={profile.last_name ?? ''}
+                email={profile.email ?? user.email ?? ''}
+                role={roleLabel}
+              />
+            ) : isCustomer ? (
+              <CustomerProfileForm
+                firstName={profile.first_name ?? ''}
+                lastName={profile.last_name ?? ''}
+                email={profile.email ?? user.email ?? ''}
+                role={roleLabel}
+              />
+            ) : (
+              <ProviderProfileForm
+                firstName={profile.first_name ?? ''}
+                lastName={profile.last_name ?? ''}
+                email={profile.email ?? user.email ?? ''}
+                role={roleLabel}
+              />
+            )}
           </section>
         </div>
       </section>

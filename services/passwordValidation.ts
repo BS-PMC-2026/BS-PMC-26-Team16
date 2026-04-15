@@ -21,9 +21,5 @@ export function getStrongPasswordErrors(password: string) {
     errors.push("Password must include at least one special character.");
   }
 
-  if (/@/.test(password)) {
-    errors.push("Password cannot look like an email address.");
-  }
-
   return errors;
 }

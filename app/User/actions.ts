@@ -7,11 +7,92 @@ import {
   validateAdminProfileUpdate,
   type AdminProfileActionState,
 } from '@/services/adminProfile'
+import {
+  initialCustomerProfileState,
+  validateCustomerProfileUpdate,
+  type CustomerProfileActionState,
+} from '@/services/customerProfile'
+import {
+  initialProviderProfileState,
+  validateProviderProfileUpdate,
+  type ProviderProfileActionState,
+} from '@/services/providerProfile'
 
 export async function updateAdminProfile(
   _previousState: AdminProfileActionState,
   formData: FormData
 ): Promise<AdminProfileActionState> {
+  return updateProfileByRole({
+    formData,
+    expectedRole: 'admin',
+    initialState: initialAdminProfileState,
+    validate: validateAdminProfileUpdate,
+    unauthorizedMessage: 'Only admins can update this profile.',
+  })
+}
+
+export async function updateCustomerProfile(
+  _previousState: CustomerProfileActionState,
+  formData: FormData
+): Promise<CustomerProfileActionState> {
+  return updateProfileByRole({
+    formData,
+    expectedRole: 'customer',
+    initialState: initialCustomerProfileState,
+    validate: validateCustomerProfileUpdate,
+    unauthorizedMessage: 'Only customers can update this profile.',
+  })
+}
+
+export async function updateProviderProfile(
+  _previousState: ProviderProfileActionState,
+  formData: FormData
+): Promise<ProviderProfileActionState> {
+  return updateProfileByRole({
+    formData,
+    expectedRole: 'provider',
+    initialState: initialProviderProfileState,
+    validate: validateProviderProfileUpdate,
+    unauthorizedMessage: 'Only providers can update this profile.',
+  })
+}
+
+type SupportedProfileRole = 'admin' | 'customer' | 'provider'
+
+type SharedProfileState = AdminProfileActionState
+
+type UpdateProfileByRoleOptions = {
+  formData: FormData
+  expectedRole: SupportedProfileRole
+  initialState: SharedProfileState
+  validate: (values: {
+    firstName: string
+    lastName: string
+    password: string
+    confirmPassword: string
+  }) =>
+    | {
+        success: true
+        data: {
+          firstName: string
+          lastName: string
+          password: string | null
+        }
+      }
+    | {
+        success: false
+        errors: SharedProfileState['errors']
+      }
+  unauthorizedMessage: string
+}
+
+async function updateProfileByRole({
+  formData,
+  expectedRole,
+  initialState,
+  validate,
+  unauthorizedMessage,
+}: UpdateProfileByRoleOptions): Promise<SharedProfileState> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -20,7 +101,7 @@ export async function updateAdminProfile(
 
   if (authError || !user) {
     return {
-      ...initialAdminProfileState,
+      ...initialState,
       message: 'You must be signed in to update this profile.',
     }
   }
@@ -34,16 +115,15 @@ export async function updateAdminProfile(
   if (
     profileError ||
     !profile ||
-    profile.user_type !== 'admin' ||
-    profile.is_approved !== true
+    profile.user_type !== expectedRole
   ) {
     return {
-      ...initialAdminProfileState,
-      message: 'Only approved admins can update this profile.',
+      ...initialState,
+      message: unauthorizedMessage,
     }
   }
 
-  const validated = validateAdminProfileUpdate({
+  const validated = validate({
     firstName: String(formData.get('firstName') ?? ''),
     lastName: String(formData.get('lastName') ?? ''),
     password: String(formData.get('password') ?? ''),
@@ -70,7 +150,7 @@ export async function updateAdminProfile(
 
   if (updateProfileError) {
     return {
-      ...initialAdminProfileState,
+      ...initialState,
       message: updateProfileError.message,
     }
   }
@@ -82,7 +162,7 @@ export async function updateAdminProfile(
 
     if (updateAuthError) {
       return {
-        ...initialAdminProfileState,
+        ...initialState,
         message: updateAuthError.message,
       }
     }

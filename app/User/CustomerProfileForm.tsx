@@ -1,26 +1,26 @@
 'use client'
 
 import { useActionState } from 'react'
-import { updateAdminProfile } from './actions'
-import { initialAdminProfileState } from '@/services/adminProfile'
+import { updateCustomerProfile } from './actions'
+import { initialCustomerProfileState } from '@/services/customerProfile'
 import ProfileForm from './ProfileForm'
 
-type AdminProfileFormProps = {
+type CustomerProfileFormProps = {
   firstName: string
   lastName: string
   email: string
   role: string
 }
 
-export default function AdminProfileForm({
+export default function CustomerProfileForm({
   firstName,
   lastName,
   email,
   role,
-}: AdminProfileFormProps) {
+}: CustomerProfileFormProps) {
   const [state, formAction, pending] = useActionState(
-    updateAdminProfile,
-    initialAdminProfileState
+    updateCustomerProfile,
+    initialCustomerProfileState
   )
 
   return (
@@ -32,7 +32,7 @@ export default function AdminProfileForm({
       state={state}
       pending={pending}
       formAction={formAction}
-      ownershipMessage="Changes are applied only to your own admin account."
+      ownershipMessage="Changes are applied only to your own customer account."
     />
   )
 }

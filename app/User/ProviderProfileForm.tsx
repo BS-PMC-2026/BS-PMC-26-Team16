@@ -1,26 +1,26 @@
 'use client'
 
 import { useActionState } from 'react'
-import { updateAdminProfile } from './actions'
-import { initialAdminProfileState } from '@/services/adminProfile'
+import { updateProviderProfile } from './actions'
+import { initialProviderProfileState } from '@/services/providerProfile'
 import ProfileForm from './ProfileForm'
 
-type AdminProfileFormProps = {
+type ProviderProfileFormProps = {
   firstName: string
   lastName: string
   email: string
   role: string
 }
 
-export default function AdminProfileForm({
+export default function ProviderProfileForm({
   firstName,
   lastName,
   email,
   role,
-}: AdminProfileFormProps) {
+}: ProviderProfileFormProps) {
   const [state, formAction, pending] = useActionState(
-    updateAdminProfile,
-    initialAdminProfileState
+    updateProviderProfile,
+    initialProviderProfileState
   )
 
   return (
@@ -32,7 +32,7 @@ export default function AdminProfileForm({
       state={state}
       pending={pending}
       formAction={formAction}
-      ownershipMessage="Changes are applied only to your own admin account."
+      ownershipMessage="Changes are applied only to your own provider account."
     />
   )
 }

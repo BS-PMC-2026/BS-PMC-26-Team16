@@ -9,6 +9,14 @@ vi.mock("../lib/supabase/client", () => ({
 
 type RegisterInput = Parameters<typeof registerUser>[0];
 
+type MockExistingProfile = { id: string } | null;
+type MockError = { message: string } | null;
+type MockSignUpData = {
+  user: { id: string; email: string } | null;
+  session: { access_token: string } | null;
+};
+type MockProfileData = { id: string; first_name: string } | null;
+
 function createSupabaseMock({
   existingProfile = null,
   existingError = null,
@@ -19,6 +27,13 @@ function createSupabaseMock({
   signUpError = null,
   profileData = { id: "user-123", first_name: "Ada" },
   profileError = null,
+}: {
+  existingProfile?: MockExistingProfile;
+  existingError?: MockError;
+  signUpData?: MockSignUpData;
+  signUpError?: MockError;
+  profileData?: MockProfileData;
+  profileError?: MockError;
 } = {}) {
   const maybeSingle = vi.fn().mockResolvedValue({
     data: existingProfile,
@@ -31,28 +46,24 @@ function createSupabaseMock({
     }),
   });
 
-  const updateSingle = vi.fn().mockResolvedValue({
+  const upsertSingle = vi.fn().mockResolvedValue({
     data: profileData,
     error: profileError,
   });
 
-  const updateSelect = vi.fn().mockReturnValue({
-    single: updateSingle,
+  const upsertSelect = vi.fn().mockReturnValue({
+    single: upsertSingle,
   });
 
-  const updateEq = vi.fn().mockReturnValue({
-    select: updateSelect,
-  });
-
-  const update = vi.fn().mockReturnValue({
-    eq: updateEq,
+  const upsert = vi.fn().mockReturnValue({
+    select: upsertSelect,
   });
 
   const from = vi.fn((table: string) => {
     if (table === "profiles") {
       return {
         select: selectExisting,
-        update,
+        upsert,
       };
     }
 
@@ -74,10 +85,9 @@ function createSupabaseMock({
     calls: {
       maybeSingle,
       selectExisting,
-      update,
-      updateEq,
-      updateSelect,
-      updateSingle,
+      upsert,
+      upsertSelect,
+      upsertSingle,
       signUp: auth.signUp,
     },
   };
@@ -113,7 +123,7 @@ describe("registerUser", () => {
       error: { message: "This email already exists in the system." },
     });
     expect(calls.signUp).not.toHaveBeenCalled();
-    expect(calls.update).not.toHaveBeenCalled();
+    expect(calls.upsert).not.toHaveBeenCalled();
   });
 
   it("returns the lookup error when checking existing profiles fails", async () => {
@@ -143,16 +153,22 @@ describe("registerUser", () => {
       email: "ada@example.com",
       password: "abc123",
     });
-    expect(calls.update).toHaveBeenCalledWith({
-      first_name: "Ada",
-      last_name: "Lovelace",
-      phone: "0501234567",
-      id_number: "123456789",
-      user_type: "customer",
-      request_reason: "I want to use the platform as an everyday customer.",
-      is_approved: false,
-    });
-    expect(calls.updateEq).toHaveBeenCalledWith("id", "user-123");
+    expect(calls.upsert).toHaveBeenCalledWith(
+      {
+        id: "user-123",
+        first_name: "Ada",
+        last_name: "Lovelace",
+        phone: "0501234567",
+        email: "ada@example.com",
+        id_number: "123456789",
+        user_type: "customer",
+        request_reason: "I want to use the platform as an everyday customer.",
+        is_approved: false,
+      },
+      {
+        onConflict: "id",
+      }
+    );
     expect(result.error).toBeNull();
     expect(result.data?.profile).toEqual({ id: "user-123", first_name: "Ada" });
   });
@@ -169,7 +185,7 @@ describe("registerUser", () => {
       data: null,
       error: signUpError,
     });
-    expect(calls.update).not.toHaveBeenCalled();
+    expect(calls.upsert).not.toHaveBeenCalled();
   });
 
   it("returns an error when sign up does not provide a user", async () => {
