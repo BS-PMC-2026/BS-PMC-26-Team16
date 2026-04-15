@@ -27,7 +27,7 @@ async function fillStepOne() {
     target: { value: "Ada@Example.com " },
   });
   fireEvent.change(screen.getByPlaceholderText("Create a strong password"), {
-    target: { value: "abc123" },
+    target: { value: "StrongPass1!" },
   });
 }
 
@@ -86,7 +86,7 @@ describe("RegisterPage", () => {
         last_name: "Lovelace",
         phone: "0501234567",
         email: "Ada@Example.com",
-        password: "abc123",
+        password: "StrongPass1!",
         id_number: "123456789",
         user_type: "customer",
         request_reason: "I use EV charging often and need access to the platform.",
@@ -122,5 +122,37 @@ describe("RegisterPage", () => {
     expect(
       await screen.findByText(/this email already exists in the system\./i)
     ).toBeInTheDocument();
+  });
+
+  it("blocks moving to step two when the password is too weak", async () => {
+    render(<RegisterPage />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter your first name"), {
+      target: { value: "Ada" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter your last name"), {
+      target: { value: "Lovelace" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("0501234567"), {
+      target: { value: "0501234567" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter your ID number"), {
+      target: { value: "123456789" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("you@example.com"), {
+      target: { value: "Ada@Example.com" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Create a strong password"), {
+      target: { value: "abc123" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /next step/i }));
+
+    expect(
+      screen.getByText(
+        /password must be at least 8 characters and include uppercase, lowercase, a number, and a special character/i
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Your Details")).not.toBeInTheDocument();
   });
 });

@@ -1,7 +1,8 @@
 .admin-approvals-page {
   min-height: 100vh;
-  background: linear-gradient(90deg, #18263f 0%, #244b9f 100%);
-  padding: 40px 16px;
+  background:
+    radial-gradient(circle at top, #155e75 0%, #020617 35%, #000000 100%);
+  padding: 48px 16px;
   position: relative;
   overflow: hidden;
 }
@@ -10,24 +11,24 @@
 .admin-approvals-background-glow-two {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(90px);
+  filter: blur(110px);
   pointer-events: none;
 }
 
 .admin-approvals-background-glow-one {
-  width: 260px;
-  height: 260px;
-  background: rgba(255, 255, 255, 0.08);
-  top: 8%;
-  left: 4%;
+  width: 300px;
+  height: 300px;
+  background: rgba(34, 211, 238, 0.16);
+  top: 4%;
+  left: 2%;
 }
 
 .admin-approvals-background-glow-two {
-  width: 320px;
-  height: 320px;
-  background: rgba(59, 130, 246, 0.18);
-  bottom: 8%;
-  right: 8%;
+  width: 360px;
+  height: 360px;
+  background: rgba(21, 94, 117, 0.28);
+  bottom: 6%;
+  right: 6%;
 }
 
 .admin-approvals-card {
@@ -35,14 +36,16 @@
   z-index: 1;
   max-width: 1100px;
   margin: 0 auto;
-  background: #f3f4f6;
-  border-radius: 24px;
+  background: rgba(2, 6, 23, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 32px;
   padding: 32px;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 24px 60px rgba(8, 47, 73, 0.28);
 }
 
 .admin-approvals-header {
-  text-align: center;
+  text-align: left;
   margin-bottom: 28px;
 }
 
@@ -50,15 +53,16 @@
   display: inline-block;
   padding: 8px 18px;
   border-radius: 999px;
-  background: #dbeafe;
-  color: #2563eb;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  background: rgba(34, 211, 238, 0.1);
+  color: #cffafe;
   font-size: 13px;
   font-weight: 700;
   margin-bottom: 16px;
 }
 
 .admin-approvals-title {
-  color: #0f172a;
+  color: #f8fafc;
   font-size: 42px;
   line-height: 1.1;
   font-weight: 800;
@@ -66,9 +70,41 @@
 }
 
 .admin-approvals-subtitle {
-  color: #64748b;
+  color: #cbd5e1;
   font-size: 17px;
   margin: 0;
+  max-width: 720px;
+}
+
+.admin-approvals-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.admin-summary-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-summary-label {
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-summary-value {
+  color: #ecfeff;
+  font-size: 24px;
+  font-weight: 800;
 }
 
 .admin-filter-form {
@@ -86,20 +122,37 @@
   min-width: 180px;
 }
 
+.admin-filter-field-search {
+  flex: 1;
+  min-width: 280px;
+}
+
 .admin-filter-label {
-  color: #374151;
+  color: #cbd5e1;
   font-size: 14px;
   font-weight: 700;
 }
 
 .admin-filter-input {
-  background: #e5e7eb;
-  border: 1px solid #cbd5e1;
-  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
   padding: 14px 16px;
-  color: #0f172a;
+  color: #f8fafc;
   font-size: 15px;
   outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.admin-filter-input:focus {
+  border-color: rgba(34, 211, 238, 0.65);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14);
+}
+
+.admin-filter-input::placeholder {
+  color: #94a3b8;
 }
 
 .admin-filter-actions {
@@ -112,8 +165,8 @@
 .admin-clear-button,
 .admin-approve-button {
   border: none;
-  border-radius: 14px;
-  padding: 13px 18px;
+  border-radius: 999px;
+  padding: 13px 20px;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
@@ -123,33 +176,44 @@
 
 .admin-filter-button,
 .admin-approve-button {
-  background: linear-gradient(90deg, #3568e8 0%, #2553d8 100%);
-  color: white;
+  background: #22d3ee;
+  color: #082f49;
+  box-shadow: 0 10px 30px rgba(34, 211, 238, 0.18);
+}
+
+.admin-filter-button:hover,
+.admin-approve-button:hover {
+  background: #67e8f9;
 }
 
 .admin-clear-button {
-  background: #e5e7eb;
-  color: #0f172a;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-clear-button:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .admin-error-box,
 .admin-empty-box {
-  border-radius: 16px;
+  border-radius: 20px;
   padding: 16px;
   margin-bottom: 20px;
   font-size: 15px;
 }
 
 .admin-error-box {
-  background: #fee2e2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.28);
 }
 
 .admin-empty-box {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
+  background: rgba(34, 211, 238, 0.08);
+  color: #cffafe;
+  border: 1px solid rgba(34, 211, 238, 0.22);
 }
 
 .admin-approvals-list {
@@ -159,11 +223,11 @@
 }
 
 .admin-user-card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 22px;
-  padding: 22px;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  padding: 24px;
+  box-shadow: 0 18px 40px rgba(2, 8, 23, 0.18);
 }
 
 .admin-user-top {
@@ -174,17 +238,39 @@
   margin-bottom: 18px;
 }
 
+.admin-user-heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
 .admin-user-name {
-  margin: 0 0 6px;
-  color: #0f172a;
+  margin: 0;
+  color: #f8fafc;
   font-size: 24px;
   font-weight: 800;
+}
+
+.admin-user-role-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 12px;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  background: rgba(34, 211, 238, 0.08);
+  color: #a5f3fc;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: capitalize;
+  letter-spacing: 0.04em;
 }
 
 .admin-user-meta,
 .admin-created-at {
   margin: 0;
-  color: #64748b;
+  color: #94a3b8;
   font-size: 14px;
 }
 
@@ -196,9 +282,9 @@
 }
 
 .admin-info-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -206,36 +292,36 @@
 }
 
 .admin-info-label {
-  color: #64748b;
+  color: #94a3b8;
   font-size: 13px;
   font-weight: 700;
 }
 
 .admin-info-value {
-  color: #0f172a;
+  color: #e2e8f0;
   font-size: 15px;
   font-weight: 600;
   word-break: break-word;
 }
 
 .admin-reason-box {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 16px;
+  background: rgba(34, 211, 238, 0.06);
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 22px;
   padding: 16px;
   margin-bottom: 18px;
 }
 
 .admin-reason-title {
   margin: 0 0 8px;
-  color: #1d4ed8;
+  color: #a5f3fc;
   font-size: 14px;
   font-weight: 800;
 }
 
 .admin-reason-text {
   margin: 0;
-  color: #1e293b;
+  color: #e2e8f0;
   font-size: 15px;
   line-height: 1.6;
   white-space: pre-wrap;
@@ -255,9 +341,10 @@
 
 .admin-action-message {
   margin: 0;
-  color: #2563eb;
+  color: #a5f3fc;
   font-size: 13px;
   font-weight: 600;
+  text-align: right;
 }
 
 @media (max-width: 768px) {
@@ -267,6 +354,10 @@
 
   .admin-approvals-title {
     font-size: 32px;
+  }
+
+  .admin-approvals-summary {
+    grid-template-columns: 1fr;
   }
 
   .admin-user-top {
@@ -281,35 +372,16 @@
   .admin-approve-wrapper {
     align-items: stretch;
   }
-  .admin-filter-field-search {
-  flex: 1;
-  min-width: 280px;
-}
 
-.admin-filter-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: end;
-  margin-bottom: 28px;
-}
+  .admin-filter-actions {
+    width: 100%;
+    flex-direction: column;
+  }
 
-.admin-filter-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 180px;
-}
-
-.admin-filter-input {
-  background: #e5e7eb;
-  border: 1px solid #cbd5e1;
-  border-radius: 14px;
-  padding: 14px 16px;
-  color: #0f172a;
-  font-size: 15px;
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-}
+  .admin-filter-button,
+  .admin-clear-button,
+  .admin-approve-button {
+    width: 100%;
+    text-align: center;
+  }
 }

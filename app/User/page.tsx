@@ -1,99 +1,93 @@
-import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
+import AdminProfileForm from './AdminProfileForm'
 
 export default async function DashboardPage() {
-  // Create a server-side Supabase client and get the logged-in user
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  // If no user is logged in, send them to the login page
-  if (!user) redirect('/login')
+  if (!user) {
+    redirect('/login')
+  }
 
-  // Fetch the user's profile row from the 'profiles' table using their auth ID
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
-    .select('first_name, last_name, email, phone, user_type, is_approved')
+    .select('first_name, last_name, email, user_type, is_approved')
     .eq('id', user.id)
     .single()
 
-  // Derived display values from the profile
-  const fullName = profile ? `${profile.first_name} ${profile.last_name}` : 'User'
-  const userType = profile?.user_type === 'provider' ? 'Service Provider' : 'Customer'
-  const isApproved = profile?.is_approved
+  if (
+    error ||
+    !profile ||
+    profile.user_type !== 'admin' ||
+    profile.is_approved !== true
+  ) {
+    redirect('/')
+  }
+
+  const fullName = `${profile.first_name} ${profile.last_name}`.trim()
 
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col">
-      <section className="flex-1 px-6 py-12 max-w-4xl mx-auto w-full">
-
-        {/* Greeting header — shows the user's full name */}
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#155e75_0%,#020617_35%,#000000_100%)] text-white">
+      <section className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-12">
         <div className="mb-10">
-          <h2 className="text-4xl font-bold">
-            Welcome back, <span className="text-blue-500">{fullName}</span>
-          </h2>
-          <p className="text-gray-400 mt-2">Here&apos;s your account overview.</p>
+          <div className="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1 text-sm font-medium text-cyan-100">
+            Admin Profile
+          </div>
+          <h1 className="mt-5 text-4xl font-bold tracking-tight">
+            Manage your account details
+          </h1>
+          <p className="mt-3 max-w-2xl text-base text-gray-300">
+            Review your personal information, update your name, and change your
+            password securely from one place.
+          </p>
         </div>
 
-        {/* Warning banner — only shown if the account hasn't been approved yet */}
-        {!isApproved && (
-          <div className="mb-8 bg-yellow-900/40 border border-yellow-600 text-yellow-300 rounded-xl px-5 py-4 text-sm">
-            ⏳ Your account is pending approval. Some features may be limited.
-          </div>
-        )}
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_1.9fr]">
+          <aside className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur">
+            <p className="text-sm uppercase tracking-[0.3em] text-cyan-200/70">
+              Overview
+            </p>
+            <div className="mt-6 space-y-5">
+              <div>
+                <p className="text-sm text-gray-400">Name</p>
+                <p className="mt-1 text-xl font-semibold text-white">
+                  {fullName}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Email</p>
+                <p className="mt-1 text-base text-gray-200">
+                  {profile.email ?? user.email}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Role</p>
+                <p className="mt-1 text-base font-medium text-cyan-100">
+                  Administrator
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Status</p>
+                <span className="mt-2 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-200">
+                  Approved
+                </span>
+              </div>
+            </div>
+          </aside>
 
-        {/* Info cards — each card displays one field from the user's profile */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
-
-          {/* Full name card */}
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-            <p className="text-gray-400 text-sm mb-1">Full Name</p>
-            <p className="text-lg font-semibold">{fullName}</p>
-          </div>
-
-          {/* Email — falls back to the auth email if not in the profile */}
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-            <p className="text-gray-400 text-sm mb-1">Email</p>
-            <p className="text-lg font-semibold">{profile?.email ?? user.email}</p>
-          </div>
-
-          {/* Phone — shows a dash if not set */}
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-            <p className="text-gray-400 text-sm mb-1">Phone</p>
-            <p className="text-lg font-semibold">{profile?.phone ?? '—'}</p>
-          </div>
-
-          {/* Account type — either Customer or Service Provider */}
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-            <p className="text-gray-400 text-sm mb-1">Account Type</p>
-            <p className="text-lg font-semibold">{userType}</p>
-          </div>
-
-          {/* Approval status — green badge if approved, yellow if pending */}
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-            <p className="text-gray-400 text-sm mb-1">Status</p>
-            <span className={`inline-block mt-1 px-3 py-1 rounded-full text-sm font-medium ${isApproved ? 'bg-green-800 text-green-300' : 'bg-yellow-800 text-yellow-300'}`}>
-              {isApproved ? 'Approved' : 'Pending Approval'}
-            </span>
-          </div>
-
+          <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-cyan-950/20 backdrop-blur">
+            <AdminProfileForm
+              firstName={profile.first_name ?? ''}
+              lastName={profile.last_name ?? ''}
+              email={profile.email ?? user.email ?? ''}
+              role="Administrator"
+            />
+          </section>
         </div>
-
-        {/* Action buttons — quick links to app features */}
-        <div className="flex flex-wrap gap-4">
-          <Link
-            href=""
-            className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl font-semibold transition"
-          >
-            Add your Own Station 🔋⚡
-          </Link>
-        </div>
-
       </section>
-
-      {/* Page footer */}
-      <footer className="text-center text-gray-500 text-sm p-4 border-t border-gray-800">
-        Urban EV © 2026
-      </footer>
     </main>
   )
 }

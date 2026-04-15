@@ -18,7 +18,6 @@ export default async function AdminApprovalsPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  // Protect admin page
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -93,6 +92,7 @@ export default async function AdminApprovalsPage({
   }
 
   const { data: users, error } = await query;
+  const pendingCount = users?.length ?? 0;
 
   return (
     <div className="admin-approvals-page">
@@ -104,8 +104,24 @@ export default async function AdminApprovalsPage({
           <div className="admin-approvals-badge">Admin Panel</div>
           <h1 className="admin-approvals-title">Pending User Approvals</h1>
           <p className="admin-approvals-subtitle">
-            Review user requests, search users, filter by date, and approve accounts.
+            Review user requests, search users, filter by date, and approve
+            accounts.
           </p>
+        </div>
+
+        <div className="admin-approvals-summary">
+          <div className="admin-summary-card">
+            <span className="admin-summary-label">Pending requests</span>
+            <strong className="admin-summary-value">{pendingCount}</strong>
+          </div>
+          <div className="admin-summary-card">
+            <span className="admin-summary-label">Access level</span>
+            <strong className="admin-summary-value">Approved Admin</strong>
+          </div>
+          <div className="admin-summary-card">
+            <span className="admin-summary-label">Review mode</span>
+            <strong className="admin-summary-value">Live filters</strong>
+          </div>
         </div>
 
         <form method="GET" className="admin-filter-form">
@@ -183,12 +199,13 @@ export default async function AdminApprovalsPage({
               <div key={user.id} className="admin-user-card">
                 <div className="admin-user-top">
                   <div>
-                    <h2 className="admin-user-name">
-                      {user.first_name} {user.last_name}
-                    </h2>
-                    <p className="admin-user-meta">
-                      {user.email} · {user.user_type}
-                    </p>
+                    <div className="admin-user-heading-row">
+                      <h2 className="admin-user-name">
+                        {user.first_name} {user.last_name}
+                      </h2>
+                      <span className="admin-user-role-pill">{user.user_type}</span>
+                    </div>
+                    <p className="admin-user-meta">{user.email}</p>
                   </div>
 
                   <div className="admin-created-at">

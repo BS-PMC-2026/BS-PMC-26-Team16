@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { registerUser } from "../../services/registerUser";
+import { getStrongPasswordErrors } from "../../services/passwordValidation";
 import "./RegisterPage.css";
 
 type FormDataType = {
@@ -84,12 +85,11 @@ export default function RegisterPage() {
       newErrors.email = "Please enter a valid email address";
     }
 
-    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{6,}$/;
     if (!form.password) {
       newErrors.password = "Password is required";
-    } else if (!passwordRegex.test(form.password)) {
+    } else if (getStrongPasswordErrors(form.password).length > 0) {
       newErrors.password =
-        "Password must be at least 6 characters and include a letter and a number";
+        "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character";
     }
 
     const idDigits = form.idNumber.replace(/\D/g, "");
