@@ -34,9 +34,11 @@ export default async function Navbar() {
           <>
             <span className="text-gray-300 text-sm">{greeting}</span>
 
-            <Link href="/User" className="text-gray-300 hover:text-white text-sm">
-              Dashboard
-            </Link>
+            {!isAdmin && (
+              <Link href="/User" className="text-gray-300 hover:text-white text-sm">
+                Dashboard
+              </Link>
+            )}
 
             {isAdmin && (
               <Link
