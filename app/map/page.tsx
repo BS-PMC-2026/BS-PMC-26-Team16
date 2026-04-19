@@ -1,3 +1,4 @@
+/// <reference types="google.maps" />
 'use client'
 
 import { useEffect, useRef } from 'react'
@@ -65,8 +66,14 @@ export default function MapPage() {
     locationBtn.style.cssText = 'margin:10px;width:40px;height:40px;border-radius:50%;border:none;background:#fff;font-size:20px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;'
     locationBtn.addEventListener('click', () => {
       navigator.geolocation.getCurrentPosition(
-        (pos) => map.panTo({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => map.panTo(center)
+        (pos) => {
+          map.setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+          map.setZoom(15)
+        },
+        () => {
+          map.setCenter(center)
+          map.setZoom(15)
+        }
       )
     })
     map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(locationBtn)
