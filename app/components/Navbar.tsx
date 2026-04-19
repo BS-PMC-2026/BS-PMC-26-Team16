@@ -8,6 +8,7 @@ export default async function Navbar() {
 
   let greeting = 'Hello Guest'
   let isAdmin = false
+  let isProvider = false
 
   if (user) {
     const { data: profile } = await supabase
@@ -19,6 +20,7 @@ export default async function Navbar() {
     if (profile) {
       greeting = `Hello ${profile.first_name} ${profile.last_name}`
       isAdmin = profile.user_type === 'admin'
+      isProvider = profile.user_type === 'provider'
     }
   }
 
@@ -37,6 +39,15 @@ export default async function Navbar() {
             {!isAdmin && (
               <Link href="/User" className="text-gray-300 hover:text-white text-sm">
                 Dashboard
+              </Link>
+            )}
+
+            {isProvider && (
+              <Link
+                href="/add-point"
+                className="text-green-400 hover:text-green-300 text-sm font-semibold"
+              >
+                + Add Point
               </Link>
             )}
 
