@@ -71,13 +71,13 @@ describe("Admin login behavior", () => {
     expect(screen.getByRole("link", { name: /approvals/i })).toBeInTheDocument();
   });
 
-  /* Verifies that the Dashboard link is hidden in the Navbar when an admin is logged in */
-  it("Admin is logged in — Dashboard link is not displayed in Navbar", async () => {
+  /* Verifies that the Dashboard link is displayed in the Navbar for every logged-in user, including admins */
+  it("Admin is logged in — Dashboard link is displayed in Navbar", async () => {
     createClientMock.mockReturnValue(createSupabaseMock("admin"));
 
     render(await Navbar());
 
-    expect(screen.queryByRole("link", { name: /dashboard/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /dashboard/i })).toBeInTheDocument();
   });
 
   /* Verifies that an admin can sign in successfully with valid email and password */
