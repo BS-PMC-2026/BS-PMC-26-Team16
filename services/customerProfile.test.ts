@@ -94,6 +94,8 @@ describe("customer profile validation", () => {
     const result = validateCustomerProfileUpdate({
       firstName: "  Ada  ",
       lastName: "  Lovelace ",
+      email: " Ada@Example.com ",
+      currentEmail: "ada@example.com",
       password: "",
       confirmPassword: "",
     });
@@ -103,6 +105,8 @@ describe("customer profile validation", () => {
       data: {
         firstName: "Ada",
         lastName: "Lovelace",
+        email: "ada@example.com",
+        emailChanged: false,
         password: null,
       },
     });
@@ -113,6 +117,8 @@ describe("customer profile validation", () => {
     const result = validateCustomerProfileUpdate({
       firstName: " ",
       lastName: "L",
+      email: "ada@example.com",
+      currentEmail: "ada@example.com",
       password: "",
       confirmPassword: "",
     });
@@ -131,6 +137,8 @@ describe("customer profile validation", () => {
     const result = validateCustomerProfileUpdate({
       firstName: "Ada",
       lastName: "Lovelace",
+      email: "ada@example.com",
+      currentEmail: "ada@example.com",
       password: "weakpass",
       confirmPassword: "weakpass",
     });
@@ -152,6 +160,8 @@ describe("customer profile validation", () => {
     const result = validateCustomerProfileUpdate({
       firstName: "Ada",
       lastName: "Lovelace",
+      email: "new@example.com",
+      currentEmail: "ada@example.com",
       password: "StrongPass1!",
       confirmPassword: "StrongPass1?",
     });

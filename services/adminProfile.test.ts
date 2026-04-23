@@ -17,6 +17,8 @@ describe("admin profile validation", () => {
     const result = validateAdminProfileUpdate({
       firstName: "  Ada  ",
       lastName: "  Lovelace ",
+      email: " Ada@Example.com ",
+      currentEmail: "ada@example.com",
       password: "",
       confirmPassword: "",
     });
@@ -26,6 +28,8 @@ describe("admin profile validation", () => {
       data: {
         firstName: "Ada",
         lastName: "Lovelace",
+        email: "ada@example.com",
+        emailChanged: false,
         password: null,
       },
     });
@@ -35,6 +39,8 @@ describe("admin profile validation", () => {
     const result = validateAdminProfileUpdate({
       firstName: " ",
       lastName: "L",
+      email: "ada@example.com",
+      currentEmail: "ada@example.com",
       password: "",
       confirmPassword: "",
     });
@@ -52,6 +58,8 @@ describe("admin profile validation", () => {
     const result = validateAdminProfileUpdate({
       firstName: "Ada",
       lastName: "Lovelace",
+      email: "ada@example.com",
+      currentEmail: "ada@example.com",
       password: "weakpass",
       confirmPassword: "weakpass",
     });
@@ -72,6 +80,8 @@ describe("admin profile validation", () => {
     const result = validateAdminProfileUpdate({
       firstName: "Ada",
       lastName: "Lovelace",
+      email: "new@example.com",
+      currentEmail: "ada@example.com",
       password: "StrongPass1!",
       confirmPassword: "StrongPass1?",
     });

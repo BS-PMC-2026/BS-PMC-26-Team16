@@ -25,6 +25,8 @@ describe("provider profile validation", () => {
     const result = validateProviderProfileUpdate({
       firstName: "  Ada  ",
       lastName: "  Lovelace ",
+      email: " Ada@Example.com ",
+      currentEmail: "ada@example.com",
       password: "",
       confirmPassword: "",
     });
@@ -34,6 +36,8 @@ describe("provider profile validation", () => {
       data: {
         firstName: "Ada",
         lastName: "Lovelace",
+        email: "ada@example.com",
+        emailChanged: false,
         password: null,
       },
     });
@@ -44,6 +48,8 @@ describe("provider profile validation", () => {
     const result = validateProviderProfileUpdate({
       firstName: " ",
       lastName: "L",
+      email: "ada@example.com",
+      currentEmail: "ada@example.com",
       password: "",
       confirmPassword: "",
     });
@@ -62,6 +68,8 @@ describe("provider profile validation", () => {
     const result = validateProviderProfileUpdate({
       firstName: "Ada",
       lastName: "Lovelace",
+      email: "ada@example.com",
+      currentEmail: "ada@example.com",
       password: "weakpass",
       confirmPassword: "weakpass",
     });
@@ -83,6 +91,8 @@ describe("provider profile validation", () => {
     const result = validateProviderProfileUpdate({
       firstName: "Ada",
       lastName: "Lovelace",
+      email: "new@example.com",
+      currentEmail: "ada@example.com",
       password: "StrongPass1!",
       confirmPassword: "StrongPass1?",
     });

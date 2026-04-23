@@ -68,6 +68,8 @@ type UpdateProfileByRoleOptions = {
   validate: (values: {
     firstName: string
     lastName: string
+    email: string
+    currentEmail?: string
     password: string
     confirmPassword: string
   }) =>
@@ -76,6 +78,8 @@ type UpdateProfileByRoleOptions = {
         data: {
           firstName: string
           lastName: string
+          email: string
+          emailChanged: boolean
           password: string | null
         }
       }
@@ -126,6 +130,8 @@ async function updateProfileByRole({
   const validated = validate({
     firstName: String(formData.get('firstName') ?? ''),
     lastName: String(formData.get('lastName') ?? ''),
+    email: String(formData.get('email') ?? ''),
+    currentEmail: String(formData.get('currentEmail') ?? ''),
     password: String(formData.get('password') ?? ''),
     confirmPassword: String(formData.get('confirmPassword') ?? ''),
   })
@@ -138,13 +144,14 @@ async function updateProfileByRole({
     }
   }
 
-  const { firstName, lastName, password } = validated.data
+  const { firstName, lastName, email, emailChanged, password } = validated.data
 
   const { error: updateProfileError } = await supabase
     .from('profiles')
     .update({
       first_name: firstName,
       last_name: lastName,
+      email,
     })
     .eq('id', user.id)
 
@@ -152,6 +159,19 @@ async function updateProfileByRole({
     return {
       ...initialState,
       message: updateProfileError.message,
+    }
+  }
+
+  if (emailChanged) {
+    const { error: updateEmailError } = await supabase.auth.updateUser({
+      email,
+    })
+
+    if (updateEmailError) {
+      return {
+        ...initialState,
+        message: updateEmailError.message,
+      }
     }
   }
 
@@ -172,9 +192,14 @@ async function updateProfileByRole({
 
   return {
     errors: {},
-    message: password
-      ? 'Profile and password updated successfully.'
-      : 'Profile updated successfully.',
+    message:
+      emailChanged && password
+        ? 'Profile, email, and password updated successfully. Please check your inbox if email confirmation is required.'
+        : emailChanged
+          ? 'Profile and email updated successfully. Please check your inbox if email confirmation is required.'
+          : password
+            ? 'Profile and password updated successfully.'
+            : 'Profile updated successfully.',
     success: true,
   }
 }
