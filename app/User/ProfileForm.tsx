@@ -2,7 +2,7 @@
 
 type ProfileFormState = {
   errors: Partial<
-    Record<'firstName' | 'lastName' | 'password' | 'confirmPassword', string[]>
+    Record<'firstName' | 'lastName' | 'email' | 'password' | 'confirmPassword', string[]>
   >
   message: string
   success: boolean
@@ -48,7 +48,15 @@ export default function ProfileForm({
     : 'border-red-500/40 bg-red-500/10 text-red-200'
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form
+      action={formAction}
+      className="space-y-6"
+      onSubmit={(event) => {
+        if (!window.confirm('Are you sure you want to save these changes?')) {
+          event.preventDefault()
+        }
+      }}
+    >
       {state.message && (
         <div className={`rounded-2xl border px-4 py-3 text-sm ${messageTone}`}>
           {state.message}
@@ -107,12 +115,16 @@ export default function ProfileForm({
           </label>
           <input
             id="email"
+            name="email"
             type="email"
-            value={email}
-            readOnly
-            disabled
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-gray-300"
+            defaultValue={email}
+            autoComplete="email"
+            required
+            disabled={pending}
+            className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
           />
+          <input type="hidden" name="currentEmail" defaultValue={email} />
+          <FieldErrors errors={state.errors.email} />
         </div>
 
         <div>

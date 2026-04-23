@@ -3,12 +3,14 @@ import { getStrongPasswordErrors } from "./passwordValidation";
 export type ProfileFormValues = {
   firstName: string;
   lastName: string;
+  email: string;
+  currentEmail?: string;
   password: string;
   confirmPassword: string;
 };
 
 export type ProfileFormErrors = Partial<
-  Record<keyof ProfileFormValues, string[]>
+  Record<"firstName" | "lastName" | "email" | "password" | "confirmPassword", string[]>
 >;
 
 export type ProfileActionState = {
@@ -20,6 +22,8 @@ export type ProfileActionState = {
 export type ValidatedProfileUpdate = {
   firstName: string;
   lastName: string;
+  email: string;
+  emailChanged: boolean;
   password: string | null;
 };
 
@@ -40,10 +44,13 @@ export function validateProfileUpdate(
   | { success: false; errors: ProfileFormErrors } {
   const firstName = normalizeName(values.firstName);
   const lastName = normalizeName(values.lastName);
+  const email = values.email.trim().toLowerCase();
+  const currentEmail = values.currentEmail?.trim().toLowerCase() ?? "";
   const password = values.password.trim();
   const confirmPassword = values.confirmPassword.trim();
 
   const errors: ProfileFormErrors = {};
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   if (!firstName) {
     errors.firstName = ["First name is required."];
@@ -55,6 +62,12 @@ export function validateProfileUpdate(
     errors.lastName = ["Last name is required."];
   } else if (lastName.length < 2) {
     errors.lastName = ["Last name must be at least 2 characters long."];
+  }
+
+  if (!email) {
+    errors.email = ["Email is required."];
+  } else if (!emailPattern.test(email)) {
+    errors.email = ["Please enter a valid email address."];
   }
 
   if (password || confirmPassword) {
@@ -83,6 +96,8 @@ export function validateProfileUpdate(
     data: {
       firstName,
       lastName,
+      email,
+      emailChanged: email !== currentEmail,
       password: password || null,
     },
   };

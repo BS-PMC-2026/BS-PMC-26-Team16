@@ -41,3 +41,14 @@ export async function getCurrentUser() {
 
   return { data, error };
 }
+
+// איפוס סיסמה
+export async function resetPasswordForEmail(email: string, redirectTo: string) {
+  const supabase = createClient();
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+
+  return { error };
+}
