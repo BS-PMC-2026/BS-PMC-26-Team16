@@ -13,6 +13,7 @@ type ProfileFormProps = {
   lastName: string
   email: string
   role: string
+  phone?: string
   state: ProfileFormState
   pending: boolean
   formAction: (formData: FormData) => void
@@ -38,6 +39,7 @@ export default function ProfileForm({
   lastName,
   email,
   role,
+  phone,
   state,
   pending,
   formAction,
@@ -143,6 +145,27 @@ export default function ProfileForm({
             className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-gray-300"
           />
         </div>
+
+        {phone !== undefined && (
+          <div>
+            <label
+              htmlFor="phone"
+              className="mb-2 block text-sm font-medium text-gray-200"
+            >
+              Phone number
+            </label>
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              defaultValue={phone}
+              autoComplete="tel"
+              placeholder="e.g. 050-1234567"
+              disabled={pending}
+              className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400 placeholder:text-gray-500"
+            />
+          </div>
+        )}
       </div>
 
       <div className="rounded-3xl border border-white/10 bg-white/5 p-6">

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import AdminProfileForm from './AdminProfileForm'
 import CustomerProfileForm from './CustomerProfileForm'
 import ProviderProfileForm from './ProviderProfileForm'
+import ChargingStationForm from './ChargingStationForm'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -16,7 +17,7 @@ export default async function DashboardPage() {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('first_name, last_name, email, user_type, is_approved')
+    .select('first_name, last_name, email, user_type, is_approved, phone')
     .eq('id', user.id)
     .single()
 
@@ -27,6 +28,16 @@ export default async function DashboardPage() {
   ) {
     redirect('/')
   }
+
+  const isProvider = profile.user_type === 'provider'
+
+  const { data: chargingStation } = isProvider
+    ? await supabase
+        .from('charging_stations')
+        .select('id, address, lat, lng, station_type')
+        .eq('user_id', user.id)
+        .maybeSingle()
+    : { data: null }
 
   const fullName = `${profile.first_name} ${profile.last_name}`.trim()
   const isAdmin = profile.user_type === 'admin'
@@ -104,6 +115,14 @@ export default async function DashboardPage() {
                   {statusLabel}
                 </span>
               </div>
+              {isProvider && (
+                <div>
+                  <p className="text-sm text-gray-400">Charging Station</p>
+                  <p className="mt-1 text-sm font-medium text-cyan-100">
+                    {chargingStation ? '⚡ Registered' : '— Not registered yet'}
+                  </p>
+                </div>
+              )}
             </div>
           </aside>
 
@@ -123,12 +142,16 @@ export default async function DashboardPage() {
                 role={roleLabel}
               />
             ) : (
-              <ProviderProfileForm
-                firstName={profile.first_name ?? ''}
-                lastName={profile.last_name ?? ''}
-                email={profile.email ?? user.email ?? ''}
-                role={roleLabel}
-              />
+              <>
+                <ProviderProfileForm
+                  firstName={profile.first_name ?? ''}
+                  lastName={profile.last_name ?? ''}
+                  email={profile.email ?? user.email ?? ''}
+                  role={roleLabel}
+                  phone={profile.phone ?? ''}
+                />
+                <ChargingStationForm existingStation={chargingStation ?? null} />
+              </>
             )}
           </section>
         </div>

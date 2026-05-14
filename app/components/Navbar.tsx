@@ -39,12 +39,20 @@ export default async function Navbar() {
             </Link>
 
             {isAdmin && (
-              <Link
-                href="/admin/approvals"
-                className="text-yellow-400 hover:text-yellow-300 text-sm font-semibold"
-              >
-                Approvals
-              </Link>
+              <>
+                <Link
+                  href="/admin/approvals"
+                  className="text-yellow-400 hover:text-yellow-300 text-sm font-semibold"
+                >
+                  Approvals
+                </Link>
+                <Link
+                  href="/admin/stations"
+                  className="text-cyan-400 hover:text-cyan-300 text-sm font-semibold"
+                >
+                  Stations
+                </Link>
+              </>
             )}
 
             <LogoutButton />

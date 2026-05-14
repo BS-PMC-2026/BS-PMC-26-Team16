@@ -10,6 +10,7 @@ type ProviderProfileFormProps = {
   lastName: string
   email: string
   role: string
+  phone: string
 }
 
 export default function ProviderProfileForm({
@@ -17,6 +18,7 @@ export default function ProviderProfileForm({
   lastName,
   email,
   role,
+  phone,
 }: ProviderProfileFormProps) {
   const [state, formAction, pending] = useActionState(
     updateProviderProfile,
@@ -29,6 +31,7 @@ export default function ProviderProfileForm({
       lastName={lastName}
       email={email}
       role={role}
+      phone={phone}
       state={state}
       pending={pending}
       formAction={formAction}
