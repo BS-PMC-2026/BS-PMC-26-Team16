@@ -41,7 +41,6 @@ export default async function Navbar() {
       <h1 className="text-xl font-bold">Urban EV</h1>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Link href="/map" className="text-gray-300 hover:text-white text-sm">Map</Link>
 
         {user ? (
           <>

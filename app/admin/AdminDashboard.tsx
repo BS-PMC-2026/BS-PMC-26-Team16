@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { deleteProviderStation } from '@/app/admin/stations/actions'
+import { approveProviderStation, deleteProviderStation } from '@/app/admin/stations/actions'
 import AdminProfileForm from '@/app/User/AdminProfileForm'
 import StationMiniMap from '@/app/admin/StationMiniMap'
+import { createClient } from '@/lib/supabase/client'
 
 export type PendingUser = {
   id: string
@@ -136,6 +137,22 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
         }
       }
 
+      if (tab === 'stations' && selectedStation && stationAction === 'keep') {
+        const result = await approveProviderStation(selectedStation.id)
+        if (result.error) {
+          setFeedback({ msg: result.error, ok: false })
+        } else {
+          setFeedback({ msg: 'Station approved.', ok: true })
+          setLocalStations(prev => {
+            const next = prev.filter(s => s.id !== selectedStation.id)
+            setSelectedStation(next[0] ?? null)
+            return next
+          })
+          setStationAction(null)
+          router.refresh()
+        }
+      }
+
       if (tab === 'stations' && selectedStation && stationAction === 'remove') {
         const result = await deleteProviderStation(selectedStation.id)
         if (result.error) {
@@ -181,9 +198,95 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
     (tab === 'stations' && (!stationAction || !selectedStation))
 
   const [showProfile, setShowProfile] = useState(false)
+  const [showUserMgmt, setShowUserMgmt] = useState(false)
+  const [allUsers, setAllUsers] = useState<{ id: string; first_name: string | null; last_name: string | null; email: string; phone: string | null; user_type: string; is_approved: boolean }[]>([])
+  const [userSearch, setUserSearch] = useState('')
+  const [usersLoading, setUsersLoading] = useState(false)
+
+  async function openUserManagement() {
+    setShowUserMgmt(true)
+    if (allUsers.length > 0) return
+    setUsersLoading(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, email, phone, user_type, is_approved')
+      .neq('user_type', 'admin')
+      .order('first_name', { ascending: true })
+    setAllUsers(data ?? [])
+    setUsersLoading(false)
+  }
+
+  const filteredUsers = allUsers.filter(u => {
+    const q = userSearch.toLowerCase()
+    const name = `${u.first_name ?? ''} ${u.last_name ?? ''}`.toLowerCase()
+    return name.includes(q) || u.email.toLowerCase().includes(q)
+  })
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-gray-950 text-white">
+
+      {/* User management modal */}
+      {showUserMgmt && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowUserMgmt(false)}
+        >
+          <div
+            className="w-180 max-h-[80vh] rounded-2xl bg-[#111318] border border-white/6 p-6 shadow-2xl flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-semibold text-white">User Management</p>
+              <button onClick={() => setShowUserMgmt(false)} className="text-gray-500 hover:text-white text-lg leading-none transition">✕</button>
+            </div>
+            <input
+              type="text"
+              value={userSearch}
+              onChange={e => setUserSearch(e.target.value)}
+              placeholder="Search by name or email..."
+              className="w-full rounded-xl bg-black/40 border border-white/[0.07] text-sm text-gray-300 placeholder:text-gray-600 px-3 py-2 outline-none focus:border-cyan-500/40 mb-4 transition"
+            />
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {usersLoading ? (
+                <p className="text-xs text-gray-600 text-center py-8">Loading...</p>
+              ) : filteredUsers.length === 0 ? (
+                <p className="text-xs text-gray-600 text-center py-8">No users found.</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-gray-600 border-b border-white/6">
+                      <th className="text-left pb-2 font-medium">Name</th>
+                      <th className="text-left pb-2 font-medium">Email</th>
+                      <th className="text-left pb-2 font-medium">Type</th>
+                      <th className="text-left pb-2 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map(u => (
+                      <tr key={u.id} className="border-b border-white/4 hover:bg-white/3 transition">
+                        <td className="py-2.5 pr-4 text-gray-300 font-medium">{`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || '—'}</td>
+                        <td className="py-2.5 pr-4 text-gray-400">{u.email}</td>
+                        <td className="py-2.5 pr-4 text-gray-400 capitalize">{u.user_type}</td>
+                        <td className="py-2.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            u.is_approved
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                          }`}>
+                            {u.is_approved ? 'Active' : 'Pending'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <p className="text-[10px] text-gray-700 mt-3 text-right">{filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}</p>
+          </div>
+        </div>
+      )}
 
       {/* Profile modal */}
       {showProfile && (
@@ -227,6 +330,15 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
               {adminFirstName.charAt(0).toUpperCase()}
             </span>
             Profile Details
+          </button>
+          <button
+            onClick={openUserManagement}
+            className="flex items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/[0.08] px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white transition"
+          >
+            <span className="w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-[9px] text-violet-400">
+              ⚙
+            </span>
+            Manage Users
           </button>
         </div>
 
@@ -459,7 +571,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                 <>
                   <ActionButton label="Approve" active={stationAction === 'approve'} variant="green" icon="check"
                     onClick={() => setStationAction(stationAction === 'approve' ? null : 'approve')} />
-                  <ActionButton label="Deny" active={stationAction === 'remove'} variant="red" icon="x"
+                  <ActionButton label="Remove" active={stationAction === 'remove'} variant="red" icon="x"
                     onClick={() => setStationAction(stationAction === 'remove' ? null : 'remove')} />
                 </>
               )}

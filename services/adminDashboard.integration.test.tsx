@@ -10,6 +10,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('../app/admin/stations/actions', () => ({
+  approveProviderStation: vi.fn().mockResolvedValue({ error: null }),
   deleteProviderStation: vi.fn().mockResolvedValue({ error: null }),
 }))
 
@@ -301,10 +302,10 @@ describe('station actions', () => {
     fireEvent.click(screen.getByRole('button', { name: /charger requests/i }))
   }
 
-  it('renders Keep Station and Remove buttons for a PRIVATE station', () => {
+  it('renders Approve and Remove buttons for a PRIVATE station', () => {
     render(<AdminDashboard {...defaultProps} />)
     switchToStations()
-    expect(screen.getByRole('button', { name: /keep station/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /remove/i })).toBeInTheDocument()
   })
 
@@ -321,11 +322,11 @@ describe('station actions', () => {
     expect(screen.getByRole('button', { name: /^send$/i })).not.toBeDisabled()
   })
 
-  it('Send button is disabled again after clicking Keep Station', () => {
+  it('Send button is disabled again after toggling Approve off', () => {
     render(<AdminDashboard {...defaultProps} />)
     switchToStations()
-    fireEvent.click(screen.getByRole('button', { name: /remove/i }))
-    fireEvent.click(screen.getByRole('button', { name: /keep station/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^approve$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^approve$/i }))
     expect(screen.getByRole('button', { name: /^send$/i })).toBeDisabled()
   })
 

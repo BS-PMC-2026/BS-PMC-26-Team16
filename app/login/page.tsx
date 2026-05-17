@@ -99,6 +99,8 @@ export default function LoginPage() {
       }
 
       const { data: { user } } = await supabase.auth.getUser();
+      let redirectTo = "/map";
+
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -113,12 +115,16 @@ export default function LoginPage() {
           setMessage("Your account is pending admin approval. Please try again once you've been approved.");
           return;
         }
+
+        if (profile?.user_type === "admin") {
+          redirectTo = "/admin";
+        }
       }
 
       setShowSuccess(true);
 
       setTimeout(() => {
-        router.push("/map");
+        router.push(redirectTo);
         router.refresh();
       }, 2000);
     } catch {
@@ -143,7 +149,7 @@ export default function LoginPage() {
           <div className="login-success-modal">
             <div className="login-success-icon">✅</div>
             <h3 className="login-success-title">Welcome Back!</h3>
-            <p className="login-success-text">Redirecting to the map...</p>
+            <p className="login-success-text">Redirecting...</p>
           </div>
         </div>
       )}
