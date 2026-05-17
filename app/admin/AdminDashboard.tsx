@@ -54,12 +54,23 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
   const [isPending, startTransition] = useTransition()
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const [showSortMenu, setShowSortMenu] = useState(false)
+  const [stationTypeFilter, setStationTypeFilter] = useState<Set<string>>(new Set(['FAST', 'SLOW']))
+
+  function toggleStationType(type: string) {
+    setStationTypeFilter(prev => {
+      const next = new Set(prev)
+      if (next.has(type)) next.delete(type)
+      else next.add(type)
+      return next
+    })
+  }
 
   const sortedUsers = [...localUsers].sort((a, b) => {
     const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     return sortOrder === 'newest' ? diff : -diff
   })
   const sortedStations = sortOrder === 'newest' ? localStations : [...localStations].reverse()
+  const filteredSortedStations = sortedStations.filter(s => stationTypeFilter.has(s.station_type))
 
   function switchTab(t: Tab) {
     setTab(t)
@@ -204,7 +215,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                   {tab === 'users' ? 'Pending Requests' : 'Provider Stations'}
                 </span>
                 <span className="text-[10px] rounded-full bg-white/10 text-gray-400 px-1.5 py-0.5 font-semibold">
-                  {tab === 'users' ? localUsers.length : localStations.length}
+                  {tab === 'users' ? localUsers.length : filteredSortedStations.length}
                 </span>
               </div>
               <div className="relative">
@@ -216,7 +227,8 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                   <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M6 9l6 6 6-6"/></svg>
                 </button>
                 {showSortMenu && (
-                  <div className="absolute right-0 top-full mt-1 z-20 w-36 rounded-xl bg-[#1a1d24] border border-white/10 shadow-xl overflow-hidden">
+                  <div className="absolute right-0 top-full mt-1 z-20 w-44 rounded-xl bg-[#1a1d24] border border-white/10 shadow-xl overflow-hidden">
+                    <p className="px-3 pt-2 pb-1 text-[9px] font-semibold text-gray-600 uppercase tracking-widest">Sort</p>
                     {(['newest', 'oldest'] as const).map(opt => (
                       <button
                         key={opt}
@@ -228,6 +240,26 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                         {opt === 'newest' ? 'Newest first' : 'Oldest first'}
                       </button>
                     ))}
+                    {tab === 'stations' && (
+                      <>
+                        <hr className="border-white/10 mx-2 my-1" />
+                        <p className="px-3 pt-1 pb-1 text-[9px] font-semibold text-gray-600 uppercase tracking-widest">Type</p>
+                        {([['FAST', 'Fast Charging'], ['SLOW', 'Slow Charging']] as const).map(([type, label]) => (
+                          <button
+                            key={type}
+                            onClick={() => toggleStationType(type)}
+                            className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 text-gray-400 hover:bg-white/[0.05] hover:text-white transition"
+                          >
+                            <span className={`w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0 ${stationTypeFilter.has(type) ? 'bg-cyan-500 border-cyan-500' : 'border-white/20'}`}>
+                              {stationTypeFilter.has(type) && (
+                                <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+                              )}
+                            </span>
+                            {label}
+                          </button>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -255,9 +287,9 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                   ))
               )}
               {tab === 'stations' && (
-                sortedStations.length === 0
+                filteredSortedStations.length === 0
                   ? <EmptyList label="No stations" />
-                  : sortedStations.map(s => (
+                  : filteredSortedStations.map(s => (
                     <button
                       key={s.id}
                       onClick={() => selectStation(s)}
