@@ -106,7 +106,7 @@ export async function upsertChargingStation(
     .eq('user_id', user.id)
     .maybeSingle()
 
-  const stationData = { address, lat, lng, station_type, opening_time, closing_time }
+  const stationData = { address, lat, lng, station_type, opening_time, closing_time, is_approve: true }
 
   const { error: dbError } = existing
     ? await supabase.from('charging_stations').update(stationData).eq('user_id', user.id)
@@ -122,6 +122,85 @@ export async function upsertChargingStation(
   return {
     errors: {},
     message: existing ? 'Charging station updated successfully.' : 'Charging station registered successfully.',
+    success: true,
+  }
+}
+
+export async function requestChargingStation(
+  _previousState: ChargingStationActionState,
+  formData: FormData
+): Promise<ChargingStationActionState> {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { ...initialChargingStationState, message: 'You must be signed in.' }
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('user_type')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || profile.user_type !== 'customer') {
+    return { ...initialChargingStationState, message: 'Only customers can request a new charging station.' }
+  }
+
+  const validated = validateChargingStation({
+    address: String(formData.get('address') ?? ''),
+    lat: String(formData.get('lat') ?? ''),
+    lng: String(formData.get('lng') ?? ''),
+    station_type: String(formData.get('station_type') ?? 'SLOW'),
+    opening_time: String(formData.get('opening_time') ?? ''),
+    closing_time: String(formData.get('closing_time') ?? ''),
+  })
+
+  if (!validated.success) {
+    return { errors: validated.errors, message: 'Please fix the highlighted fields and try again.', success: false }
+  }
+
+  const { address, lat, lng, station_type, opening_time, closing_time } = validated.data
+
+  const { data: existing } = await supabase
+    .from('charging_stations')
+    .select('id, is_approve')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (existing?.is_approve === true) {
+    return {
+      ...initialChargingStationState,
+      message: 'You already have an approved charging station.',
+    }
+  }
+
+  const stationData = {
+    address,
+    lat,
+    lng,
+    station_type,
+    opening_time,
+    closing_time,
+    is_approve: false,
+  }
+
+  const { error: dbError } = existing
+    ? await supabase.from('charging_stations').update(stationData).eq('id', existing.id)
+    : await supabase.from('charging_stations').insert({ user_id: user.id, ...stationData })
+
+  if (dbError) {
+    return { ...initialChargingStationState, message: dbError.message }
+  }
+
+  refresh()
+  revalidatePath('/admin')
+
+  return {
+    errors: {},
+    message: existing
+      ? 'Station request updated. It is waiting for admin approval.'
+      : 'Station request sent. An admin will review it soon.',
     success: true,
   }
 }
@@ -343,6 +422,43 @@ export async function completeVisit(visitId: string): Promise<{ error?: string }
 
   if (error) return { error: error.message }
   revalidatePath('/User')
+  return {}
+}
+
+export async function completeVisitAsProvider(visitId: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+
+  const { data: visit } = await supabase
+    .from('station_visits')
+    .select('station_id')
+    .eq('id', visitId)
+    .eq('status', 'arrived')
+    .single()
+
+  if (!visit) return { error: 'Visit not found.' }
+
+  const { data: station } = await supabase
+    .from('charging_stations')
+    .select('user_id')
+    .eq('id', visit.station_id)
+    .single()
+
+  if (!station || station.user_id !== user.id) {
+    return { error: 'Only the station owner can finish this charging session.' }
+  }
+
+  const { error } = await supabase
+    .from('station_visits')
+    .update({ status: 'completed' })
+    .eq('id', visitId)
+    .eq('status', 'arrived')
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/User')
+  revalidatePath('/map')
   return {}
 }
 

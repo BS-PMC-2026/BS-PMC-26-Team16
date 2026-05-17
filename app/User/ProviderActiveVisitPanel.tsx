@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { cancelVisit } from './actions'
+import { cancelVisit, completeVisitAsProvider } from './actions'
 
 export type ActiveVisit = {
   id: string
@@ -48,6 +48,7 @@ export default function ProviderActiveVisitPanel({ visit }: { visit: ActiveVisit
   const elapsed = useElapsed(visit.created_at)
   const { expired, formatted: countdown, remaining } = useCountdown(visit.created_at)
   const [cancelled, setCancelled] = useState(false)
+  const [completed, setCompleted] = useState(false)
   const [error, setError] = useState('')
   const [, startTransition] = useTransition()
   const autoCancelledRef = useRef(false)
@@ -64,6 +65,7 @@ export default function ProviderActiveVisitPanel({ visit }: { visit: ActiveVisit
   }, [expired, hasArrived, cancelled])
 
   function handleCancel() {
+    setError('')
     startTransition(async () => {
       const result = await cancelVisit(visit.id)
       if (result.error) setError(result.error)
@@ -71,10 +73,27 @@ export default function ProviderActiveVisitPanel({ visit }: { visit: ActiveVisit
     })
   }
 
+  function handleDoneCharging() {
+    setError('')
+    startTransition(async () => {
+      const result = await completeVisitAsProvider(visit.id)
+      if (result.error) setError(result.error)
+      else setCompleted(true)
+    })
+  }
+
   if (cancelled) {
     return (
       <section className="mt-8 rounded-[2rem] border border-emerald-500/30 bg-emerald-500/10 p-6">
         <p className="text-emerald-200 font-medium">✅ Visit cancelled. Your station is now available again.</p>
+      </section>
+    )
+  }
+
+  if (completed) {
+    return (
+      <section className="mt-8 rounded-[2rem] border border-emerald-500/30 bg-emerald-500/10 p-6">
+        <p className="text-emerald-200 font-medium">✅ Charging session completed. Your station is available again.</p>
       </section>
     )
   }
@@ -146,12 +165,23 @@ export default function ProviderActiveVisitPanel({ visit }: { visit: ActiveVisit
 
       {error && <p className="mb-3 text-sm text-red-300">{error}</p>}
 
-      <button
-        onClick={handleCancel}
-        className="w-full rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/20"
-      >
-        🔓 Cancel visit & unlock station
-      </button>
+      <div className="flex flex-col gap-3">
+        {hasArrived && (
+          <button
+            onClick={handleDoneCharging}
+            className="w-full rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+          >
+            ✅ Finish charging session
+          </button>
+        )}
+
+        <button
+          onClick={handleCancel}
+          className="w-full rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/20"
+        >
+          🔓 Cancel visit & unlock station
+        </button>
+      </div>
     </section>
   )
 }
