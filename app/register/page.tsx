@@ -283,7 +283,7 @@ export default function RegisterPage() {
           </div>
 
           <h1 className="register-title">
-            {step === 1 ? "Let's get to know you" : "Tell us about your request"}
+            {step === 1 ? "Let's get to know you" : "Create Your Account"}
           </h1>
         </div>
 
@@ -427,7 +427,7 @@ export default function RegisterPage() {
                   className="register-primary-button"
                   disabled={loading}
                 >
-                  Next
+                  Next Step
                 </button>
               </div>
             </div>
@@ -444,7 +444,7 @@ export default function RegisterPage() {
               </div>
 
               <div className="register-field">
-                <label className="register-label">Why should we approve you?</label>
+                <label className="register-label">Tell us why we should approve your request</label>
                 <textarea
                   name="reason"
                   value={form.reason}

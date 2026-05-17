@@ -63,7 +63,16 @@ export default async function Navbar() {
                 href="/admin"
                 className="text-cyan-400 hover:text-cyan-300 text-sm font-semibold"
               >
-                Admin Panel
+                Dashboard
+              </Link>
+            )}
+
+            {isAdmin && (
+              <Link
+                href="/admin/approvals"
+                className="text-cyan-400 hover:text-cyan-300 text-sm font-semibold"
+              >
+                Approvals
               </Link>
             )}
 
