@@ -20,6 +20,7 @@ export type PendingUser = {
 
 export type StationWithOwner = {
   id: string
+  userId?: string
   address: string
   station_type: string
   lat: number
@@ -34,7 +35,7 @@ export type StationWithOwner = {
 
 type Tab = 'users' | 'stations'
 type UserAction = 'accept' | 'deny' | null
-type StationAction = 'remove' | null
+type StationAction = 'approve' | 'remove' | null
 
 type Props = {
   adminFirstName: string
@@ -150,6 +151,27 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
           router.refresh()
         }
       }
+
+      if (tab === 'stations' && selectedStation && stationAction === 'approve') {
+        const res = await fetch('/admin/approve-station', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stationId: selectedStation.id }),
+        })
+        const data = await res.json()
+        if (res.ok) {
+          setFeedback({ msg: 'Station approved and user changed to provider.', ok: true })
+          setLocalStations(prev => {
+            const next = prev.filter(s => s.id !== selectedStation.id)
+            setSelectedStation(next[0] ?? null)
+            return next
+          })
+          setStationAction(null)
+          router.refresh()
+        } else {
+          setFeedback({ msg: data.error || 'Something went wrong.', ok: false })
+        }
+      }
     })
   }
 
@@ -250,7 +272,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
             <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-white/6">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-gray-300">
-                  {tab === 'users' ? 'Pending Requests' : 'Provider Stations'}
+                  {tab === 'users' ? 'Pending Requests' : 'Station Requests'}
                 </span>
                 <span className="text-[10px] rounded-full bg-white/10 text-gray-400 px-1.5 py-0.5 font-semibold">
                   {tab === 'users' ? localUsers.length : filteredSortedStations.length}
@@ -370,15 +392,13 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
               {tab === 'stations' && selectedStation && (
                 <>
                   <div className="flex items-center gap-3 mb-7">
-                    <h2 className="text-base font-bold">
-                      {selectedStation.access_type === 'PUBLIC' ? 'Public Station' : 'Charger Request'}
-                    </h2>
+                    <h2 className="text-base font-bold">Charger Request</h2>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
                       selectedStation.access_type === 'PUBLIC'
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                         : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
                     }`}>
-                      {selectedStation.access_type === 'PUBLIC' ? 'Public' : 'Private'}
+                      Pending approval
                     </span>
                   </div>
                   <div className="space-y-5">
@@ -435,15 +455,11 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                     className="w-full rounded-xl bg-black/40 border border-white/[0.07] text-sm text-gray-300 placeholder:text-gray-700 p-3 outline-none focus:border-cyan-500/40 resize-none transition"
                   />
                 </>
-              ) : selectedStation?.access_type === 'PUBLIC' ? (
-                <p className="text-xs text-gray-600 text-center py-4">
-                  Public stations are pre-loaded<br />and cannot be removed.
-                </p>
               ) : (
                 <>
-                  <ActionButton label="Keep Station" active={stationAction === null} variant="green" icon="check"
-                    onClick={() => setStationAction(null)} />
-                  <ActionButton label="Remove" active={stationAction === 'remove'} variant="red" icon="x"
+                  <ActionButton label="Approve" active={stationAction === 'approve'} variant="green" icon="check"
+                    onClick={() => setStationAction(stationAction === 'approve' ? null : 'approve')} />
+                  <ActionButton label="Deny" active={stationAction === 'remove'} variant="red" icon="x"
                     onClick={() => setStationAction(stationAction === 'remove' ? null : 'remove')} />
                 </>
               )}

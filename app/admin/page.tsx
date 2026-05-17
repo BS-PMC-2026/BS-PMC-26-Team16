@@ -20,8 +20,9 @@ export default async function AdminDashboardPage() {
 
   const [
     { data: pendingUsers },
-    { data: allStations },
+    { data: stationRequests },
     { count: activeUserCount },
+    { count: approvedPrivateStationCount },
     geojsonRaw,
   ] = await Promise.all([
     supabase
@@ -32,12 +33,17 @@ export default async function AdminDashboardPage() {
     supabase
       .from('charging_stations')
       .select('id, address, lat, lng, station_type, user_id')
+      .eq('is_approve', false)
       .order('id', { ascending: false }),
     supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
       .eq('is_approved', true)
       .neq('user_type', 'admin'),
+    supabase
+      .from('charging_stations')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_approve', true),
     readFile(path.join(process.cwd(), 'public', 'AGG_CHARGE_STATIONS.geojson'), 'utf-8'),
   ])
 
@@ -45,8 +51,8 @@ export default async function AdminDashboardPage() {
 
   let stations: StationWithOwner[] = []
 
-  if (allStations?.length) {
-    const userIds = [...new Set(allStations.map(s => s.user_id))]
+  if (stationRequests?.length) {
+    const userIds = [...new Set(stationRequests.map(s => s.user_id))]
     const { data: owners } = await supabase
       .from('profiles')
       .select('id, first_name, last_name, phone')
@@ -59,8 +65,9 @@ export default async function AdminDashboardPage() {
       ])
     )
 
-    stations = allStations.map(s => ({
+    stations = stationRequests.map(s => ({
       id: s.id,
+      userId: s.user_id,
       address: s.address,
       station_type: s.station_type,
       lat: s.lat,
@@ -80,7 +87,7 @@ export default async function AdminDashboardPage() {
       pendingUsers={pendingUsers ?? []}
       stations={stations}
       totalActiveUsers={activeUserCount ?? 0}
-      totalMapStations={geoStationCount + (allStations?.length ?? 0)}
+      totalMapStations={geoStationCount + (approvedPrivateStationCount ?? 0)}
     />
   )
 }

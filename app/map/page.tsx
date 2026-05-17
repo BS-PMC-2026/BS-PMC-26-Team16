@@ -30,6 +30,7 @@ export default async function MapPage() {
     const { data: stations } = await supabase
       .from('charging_stations')
       .select('id, address, lat, lng, user_id, station_type, opening_time, closing_time')
+      .eq('is_approve', true)
 
     const { data: profile } = await supabase
       .from('profiles')

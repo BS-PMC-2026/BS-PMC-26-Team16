@@ -1,12 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import AdminProfileForm from './AdminProfileForm'
-import CustomerProfileForm from './CustomerProfileForm'
-import ProviderProfileForm from './ProviderProfileForm'
-import ChargingStationForm from './ChargingStationForm'
-import ProviderNotificationsPanel from './ProviderNotificationsPanel'
-import ProviderActiveVisitPanel from './ProviderActiveVisitPanel'
-import CustomerActiveVisitPanel from './CustomerActiveVisitPanel'
+import UserDashboard, { type StationReview } from './UserDashboard'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -32,15 +29,33 @@ export default async function DashboardPage() {
     redirect('/')
   }
 
-  const isProvider = profile.user_type === 'provider'
-  const isCustomer = profile.user_type === 'customer'
+  const isAdmin = profile.user_type === 'admin'
 
-  const { data: chargingStation } = isProvider
-    ? await supabase
-        .from('charging_stations')
-        .select('id, address, lat, lng, station_type, opening_time, closing_time')
-        .eq('user_id', user.id)
-        .maybeSingle()
+  if (isAdmin) {
+    redirect('/admin')
+  }
+
+  const { data: userStation } = await supabase
+    .from('charging_stations')
+    .select('id, address, lat, lng, station_type, opening_time, closing_time, is_approve')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const hasApprovedStation = userStation?.is_approve === true
+  const isProvider = profile.user_type === 'provider' || hasApprovedStation
+  const isCustomer = !isProvider
+
+  if (hasApprovedStation && profile.user_type !== 'provider') {
+    await supabase
+      .from('profiles')
+      .update({ user_type: 'provider', is_approved: true })
+      .eq('id', user.id)
+  }
+
+  const chargingStation = isProvider && hasApprovedStation ? userStation : null
+
+  const { data: customerStationRequest } = isCustomer
+    ? { data: userStation }
     : { data: null }
 
   const { data: notifications } = isProvider
@@ -51,6 +66,40 @@ export default async function DashboardPage() {
         .order('created_at', { ascending: false })
         .limit(20)
     : { data: null }
+
+  let reviews: StationReview[] = []
+  const reviewStationId = chargingStation?.id ?? customerStationRequest?.id ?? null
+
+  if (reviewStationId) {
+    const { data: ratingRows } = await supabase
+      .from('ratings')
+      .select('id, score, comment, created_at, reviewer_id')
+      .eq('station_id', reviewStationId)
+      .order('created_at', { ascending: false })
+
+    if (ratingRows?.length) {
+      const reviewerIds = [...new Set(ratingRows.map((rating) => rating.reviewer_id))]
+      const { data: reviewerProfiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .in('id', reviewerIds)
+
+      const reviewerMap = Object.fromEntries(
+        (reviewerProfiles ?? []).map((reviewer) => [
+          reviewer.id,
+          `${reviewer.first_name ?? ''} ${reviewer.last_name ?? ''}`.trim() || 'Customer',
+        ])
+      )
+
+      reviews = ratingRows.map((rating) => ({
+        id: rating.id,
+        score: rating.score,
+        comment: rating.comment,
+        created_at: rating.created_at,
+        reviewerName: reviewerMap[rating.reviewer_id] ?? 'Customer',
+      }))
+    }
+  }
 
   // Provider: find active visit to their station (on_the_way OR arrived)
   let providerActiveVisit: { id: string; visitor_name: string | null; visitor_phone: string | null; created_at: string; status: 'on_the_way' | 'arrived' } | null = null
@@ -81,165 +130,63 @@ export default async function DashboardPage() {
     }
   }
 
-  // Customer: find their active or recently-completed visit
+  // Visitor: find this user's active or recently-completed visit, for both customers and providers
   let customerVisit: { id: string; station_address: string; created_at: string; status: 'on_the_way' | 'arrived' | 'completed'; already_rated: boolean } | null = null
-  if (isCustomer) {
-    const { data: visit } = await supabase
-      .from('station_visits')
-      .select('id, station_id, created_at, status')
-      .eq('visitor_id', user.id)
-      .in('status', ['on_the_way', 'arrived', 'completed'])
-      .order('created_at', { ascending: false })
-      .limit(1)
+  const { data: visit } = await supabase
+    .from('station_visits')
+    .select('id, station_id, created_at, status')
+    .eq('visitor_id', user.id)
+    .in('status', ['on_the_way', 'arrived', 'completed'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (visit) {
+    const { data: stationData } = await supabase
+      .from('charging_stations')
+      .select('address')
+      .eq('id', visit.station_id)
+      .single()
+
+    const { data: existingRating } = await supabase
+      .from('ratings')
+      .select('id')
+      .eq('visit_id', visit.id)
       .maybeSingle()
 
-    if (visit) {
-      const { data: stationData } = await supabase
-        .from('charging_stations')
-        .select('address')
-        .eq('id', visit.station_id)
-        .single()
-
-      const { data: existingRating } = await supabase
-        .from('ratings')
-        .select('id')
-        .eq('visit_id', visit.id)
-        .maybeSingle()
-
-      // Show active visits always; completed only if not yet rated
-      if (visit.status !== 'completed' || !existingRating) {
-        customerVisit = {
-          id: visit.id,
-          station_address: stationData?.address ?? 'Unknown address',
-          created_at: visit.created_at,
-          status: visit.status as 'on_the_way' | 'arrived' | 'completed',
-          already_rated: !!existingRating,
-        }
+    // Show active visits always; completed only if not yet rated
+    if (visit.status !== 'completed' || !existingRating) {
+      customerVisit = {
+        id: visit.id,
+        station_address: stationData?.address ?? 'Unknown address',
+        created_at: visit.created_at,
+        status: visit.status as 'on_the_way' | 'arrived' | 'completed',
+        already_rated: !!existingRating,
       }
     }
   }
 
-  const fullName = `${profile.first_name} ${profile.last_name}`.trim()
-  const isAdmin = profile.user_type === 'admin'
-  const profileTitle = isAdmin
-    ? 'Admin Profile'
-    : isCustomer
-      ? 'Customer Profile'
-      : 'Provider Profile'
-  const profileHeading = isAdmin
-    ? 'Manage your account details'
-    : isCustomer
-      ? 'Keep your customer profile up to date'
-      : 'Keep your provider profile up to date'
-  const profileDescription = isAdmin
-    ? 'Review your personal information, update your name, and change your password securely from one place.'
-    : isCustomer
-      ? 'Review your personal information, update your name, and keep your customer login secure from one place.'
-      : 'Review your personal information, update your name, and keep your provider login secure from one place.'
-  const roleLabel = isAdmin
-    ? 'Administrator'
-    : isCustomer
-      ? 'Customer'
-      : 'Service Provider'
+  const roleLabel = isCustomer
+    ? 'Customer'
+    : 'Service Provider'
   const isApproved = profile.is_approved === true
   const statusLabel = isApproved ? 'Approved' : 'Pending approval'
-  const statusClasses = isApproved
-    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-    : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#155e75_0%,#020617_35%,#000000_100%)] text-white">
-      <section className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-12">
-        <div className="mb-10">
-          <div className="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1 text-sm font-medium text-cyan-100">
-            {profileTitle}
-          </div>
-          <h1 className="mt-5 text-4xl font-bold tracking-tight">
-            {profileHeading}
-          </h1>
-          <p className="mt-3 max-w-2xl text-base text-gray-300">
-            {profileDescription}
-          </p>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_1.9fr]">
-          <aside className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur">
-            <p className="text-sm uppercase tracking-[0.3em] text-cyan-200/70">
-              Overview
-            </p>
-            <div className="mt-6 space-y-5">
-              <div>
-                <p className="text-sm text-gray-400">Name</p>
-                <p className="mt-1 text-xl font-semibold text-white">
-                  {fullName}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Email</p>
-                <p className="mt-1 text-base text-gray-200">
-                  {profile.email ?? user.email}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Role</p>
-                <p className="mt-1 text-base font-medium text-cyan-100">
-                  {roleLabel}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Status</p>
-                <span
-                  className={`mt-2 inline-flex rounded-full border px-3 py-1 text-sm font-medium ${statusClasses}`}
-                >
-                  {statusLabel}
-                </span>
-              </div>
-              {isProvider && (
-                <div>
-                  <p className="text-sm text-gray-400">Charging Station</p>
-                  <p className="mt-1 text-sm font-medium text-cyan-100">
-                    {chargingStation ? '⚡ Registered' : '— Not registered yet'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </aside>
-
-          <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-cyan-950/20 backdrop-blur">
-            {isAdmin ? (
-              <AdminProfileForm
-                firstName={profile.first_name ?? ''}
-                lastName={profile.last_name ?? ''}
-                email={profile.email ?? user.email ?? ''}
-                role={roleLabel}
-              />
-            ) : isCustomer ? (
-              <>
-                <CustomerProfileForm
-                  firstName={profile.first_name ?? ''}
-                  lastName={profile.last_name ?? ''}
-                  email={profile.email ?? user.email ?? ''}
-                  role={roleLabel}
-                />
-                {customerVisit && <CustomerActiveVisitPanel visit={customerVisit} />}
-              </>
-            ) : (
-              <>
-                <ProviderProfileForm
-                  firstName={profile.first_name ?? ''}
-                  lastName={profile.last_name ?? ''}
-                  email={profile.email ?? user.email ?? ''}
-                  role={roleLabel}
-                  phone={profile.phone ?? ''}
-                />
-                <ChargingStationForm existingStation={chargingStation ?? null} />
-                {providerActiveVisit && <ProviderActiveVisitPanel visit={providerActiveVisit} />}
-                <ProviderNotificationsPanel notifications={notifications ?? []} />
-              </>
-            )}
-          </section>
-        </div>
-      </section>
-    </main>
+    <UserDashboard
+      firstName={profile.first_name ?? ''}
+      lastName={profile.last_name ?? ''}
+      email={profile.email ?? user.email ?? ''}
+      phone={profile.phone ?? ''}
+      role={isCustomer ? 'customer' : 'provider'}
+      roleLabel={roleLabel}
+      statusLabel={statusLabel}
+      chargingStation={chargingStation ?? null}
+      customerStationRequest={customerStationRequest ?? null}
+      providerActiveVisit={providerActiveVisit}
+      customerVisit={customerVisit}
+      notifications={notifications ?? []}
+      reviews={reviews}
+    />
   )
 }
