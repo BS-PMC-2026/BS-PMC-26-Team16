@@ -26,6 +26,10 @@ export type StationWithOwner = {
   lng: number
   ownerName: string
   ownerPhone: string
+  access_type: 'PRIVATE' | 'PUBLIC'
+  chargerCount?: number
+  fastCount?: number
+  slowCount?: number
 }
 
 type Tab = 'users' | 'stations'
@@ -55,9 +59,19 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const [showSortMenu, setShowSortMenu] = useState(false)
   const [stationTypeFilter, setStationTypeFilter] = useState<Set<string>>(new Set(['FAST', 'SLOW']))
+  const [accessFilter, setAccessFilter] = useState<Set<string>>(new Set(['PRIVATE', 'PUBLIC']))
 
   function toggleStationType(type: string) {
     setStationTypeFilter(prev => {
+      const next = new Set(prev)
+      if (next.has(type)) next.delete(type)
+      else next.add(type)
+      return next
+    })
+  }
+
+  function toggleAccessType(type: string) {
+    setAccessFilter(prev => {
       const next = new Set(prev)
       if (next.has(type)) next.delete(type)
       else next.add(type)
@@ -70,7 +84,9 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
     return sortOrder === 'newest' ? diff : -diff
   })
   const sortedStations = sortOrder === 'newest' ? localStations : [...localStations].reverse()
-  const filteredSortedStations = sortedStations.filter(s => stationTypeFilter.has(s.station_type))
+  const filteredSortedStations = sortedStations.filter(s =>
+    stationTypeFilter.has(s.station_type) && accessFilter.has(s.access_type)
+  )
 
   function switchTab(t: Tab) {
     setTab(t)
@@ -243,20 +259,14 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                     {tab === 'stations' && (
                       <>
                         <hr className="border-white/10 mx-2 my-1" />
-                        <p className="px-3 pt-1 pb-1 text-[9px] font-semibold text-gray-600 uppercase tracking-widest">Type</p>
+                        <p className="px-3 pt-1 pb-1 text-[9px] font-semibold text-gray-600 uppercase tracking-widest">Speed</p>
                         {([['FAST', 'Fast Charging'], ['SLOW', 'Slow Charging']] as const).map(([type, label]) => (
-                          <button
-                            key={type}
-                            onClick={() => toggleStationType(type)}
-                            className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 text-gray-400 hover:bg-white/[0.05] hover:text-white transition"
-                          >
-                            <span className={`w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0 ${stationTypeFilter.has(type) ? 'bg-cyan-500 border-cyan-500' : 'border-white/20'}`}>
-                              {stationTypeFilter.has(type) && (
-                                <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>
-                              )}
-                            </span>
-                            {label}
-                          </button>
+                          <FilterCheckbox key={type} label={label} checked={stationTypeFilter.has(type)} onToggle={() => toggleStationType(type)} />
+                        ))}
+                        <hr className="border-white/10 mx-2 my-1" />
+                        <p className="px-3 pt-1 pb-1 text-[9px] font-semibold text-gray-600 uppercase tracking-widest">Access</p>
+                        {([['PRIVATE', 'Private Station'], ['PUBLIC', 'Public Station']] as const).map(([type, label]) => (
+                          <FilterCheckbox key={type} label={label} checked={accessFilter.has(type)} onToggle={() => toggleAccessType(type)} />
                         ))}
                       </>
                     )}
@@ -337,15 +347,42 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
 
               {tab === 'stations' && selectedStation && (
                 <>
-                  <div className="mb-7">
-                    <h2 className="text-base font-bold">Charger Request</h2>
+                  <div className="flex items-center gap-3 mb-7">
+                    <h2 className="text-base font-bold">
+                      {selectedStation.access_type === 'PUBLIC' ? 'Public Station' : 'Charger Request'}
+                    </h2>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                      selectedStation.access_type === 'PUBLIC'
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                        : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
+                    }`}>
+                      {selectedStation.access_type === 'PUBLIC' ? 'Public' : 'Private'}
+                    </span>
                   </div>
                   <div className="space-y-5">
-                    <DetailField label="Owner" value={selectedStation.ownerName || '—'} />
-                    <DetailField label="Phone" value={selectedStation.ownerPhone || '—'} />
+                    {selectedStation.access_type === 'PRIVATE' ? (
+                      <>
+                        <DetailField label="Owner" value={selectedStation.ownerName || '—'} />
+                        <DetailField label="Phone" value={selectedStation.ownerPhone || '—'} />
+                      </>
+                    ) : (
+                      <>
+                        <DetailField label="Station name" value={selectedStation.ownerName || '—'} />
+                        <DetailField label="Operator" value={selectedStation.ownerPhone || '—'} />
+                      </>
+                    )}
                     <hr className="border-white/6" />
                     <DetailField label="Address" value={selectedStation.address} />
                     <DetailField label="Station type" value={selectedStation.station_type === 'FAST' ? 'Fast Charging' : 'Slow Charging'} />
+                    {selectedStation.access_type === 'PUBLIC' && selectedStation.chargerCount != null && (
+                      <>
+                        <DetailField label="Total chargers" value={String(selectedStation.chargerCount)} />
+                        <div className="flex gap-6">
+                          <DetailField label="Fast" value={String(selectedStation.fastCount ?? 0)} />
+                          <DetailField label="Slow" value={String(selectedStation.slowCount ?? 0)} />
+                        </div>
+                      </>
+                    )}
                     <DetailField label="Coordinates" value={`${selectedStation.lat.toFixed(5)}, ${selectedStation.lng.toFixed(5)}`} />
                     <hr className="border-white/6" />
                     <div>
@@ -376,6 +413,10 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                     className="w-full rounded-xl bg-black/40 border border-white/[0.07] text-sm text-gray-300 placeholder:text-gray-700 p-3 outline-none focus:border-cyan-500/40 resize-none transition"
                   />
                 </>
+              ) : selectedStation?.access_type === 'PUBLIC' ? (
+                <p className="text-xs text-gray-600 text-center py-4">
+                  Public stations are pre-loaded<br />and cannot be removed.
+                </p>
               ) : (
                 <>
                   <ActionButton label="Keep Station" active={stationAction === null} variant="green" icon="check"
@@ -457,6 +498,24 @@ function ActionButton({
     <button onClick={onClick} className={`${base} ${active ? styles[variant].active : styles[variant].idle}`}>
       {label}
       {icon === 'check' ? <CheckIcon className="w-4 h-4" /> : <XIcon className="w-4 h-4" />}
+    </button>
+  )
+}
+
+function FilterCheckbox({ label, checked, onToggle }: { label: string; checked: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 text-gray-400 hover:bg-white/[0.05] hover:text-white transition"
+    >
+      <span className={`w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0 ${checked ? 'bg-cyan-500 border-cyan-500' : 'border-white/20'}`}>
+        {checked && (
+          <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </span>
+      {label}
     </button>
   )
 }

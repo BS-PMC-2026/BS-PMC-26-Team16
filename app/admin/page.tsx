@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import AdminDashboard from './AdminDashboard'
+import AdminDashboard, { type StationWithOwner } from './AdminDashboard'
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient()
@@ -28,15 +28,7 @@ export default async function AdminDashboardPage() {
       .order('id', { ascending: false }),
   ])
 
-  let stations: {
-    id: string
-    address: string
-    station_type: string
-    lat: number
-    lng: number
-    ownerName: string
-    ownerPhone: string
-  }[] = []
+  let stations: StationWithOwner[] = []
 
   if (allStations?.length) {
     const userIds = [...new Set(allStations.map(s => s.user_id))]
@@ -60,8 +52,10 @@ export default async function AdminDashboardPage() {
       lng: s.lng,
       ownerName: ownerMap[s.user_id]?.name ?? '',
       ownerPhone: ownerMap[s.user_id]?.phone ?? '',
+      access_type: 'PRIVATE' as const,
     }))
   }
+
 
   return (
     <AdminDashboard
