@@ -1,0 +1,446 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { deleteProviderStation } from '@/app/admin/stations/actions'
+import AdminProfileForm from '@/app/User/AdminProfileForm'
+import StationMiniMap from '@/app/admin/StationMiniMap'
+
+export type PendingUser = {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  email: string
+  phone: string | null
+  id_number: string | null
+  user_type: string
+  request_reason: string | null
+  created_at: string
+}
+
+export type StationWithOwner = {
+  id: string
+  address: string
+  station_type: string
+  lat: number
+  lng: number
+  ownerName: string
+  ownerPhone: string
+}
+
+type Tab = 'users' | 'stations'
+type UserAction = 'accept' | 'deny' | null
+type StationAction = 'remove' | null
+
+type Props = {
+  adminFirstName: string
+  adminLastName: string
+  adminEmail: string
+  pendingUsers: PendingUser[]
+  stations: StationWithOwner[]
+}
+
+export default function AdminDashboard({ adminFirstName, adminLastName, adminEmail, pendingUsers, stations }: Props) {
+  const router = useRouter()
+  const [tab, setTab] = useState<Tab>('users')
+  const [localUsers, setLocalUsers] = useState(pendingUsers)
+  const [localStations, setLocalStations] = useState(stations)
+  const [selectedUser, setSelectedUser] = useState<PendingUser | null>(pendingUsers[0] ?? null)
+  const [selectedStation, setSelectedStation] = useState<StationWithOwner | null>(stations[0] ?? null)
+  const [userAction, setUserAction] = useState<UserAction>(null)
+  const [stationAction, setStationAction] = useState<StationAction>(null)
+  const [responseText, setResponseText] = useState('')
+  const [feedback, setFeedback] = useState<{ msg: string; ok: boolean } | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
+  const [showSortMenu, setShowSortMenu] = useState(false)
+
+  const sortedUsers = [...localUsers].sort((a, b) => {
+    const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    return sortOrder === 'newest' ? diff : -diff
+  })
+  const sortedStations = sortOrder === 'newest' ? localStations : [...localStations].reverse()
+
+  function switchTab(t: Tab) {
+    setTab(t)
+    setFeedback(null)
+    setUserAction(null)
+    setStationAction(null)
+  }
+
+  function selectUser(u: PendingUser) {
+    setSelectedUser(u)
+    setUserAction(null)
+    setResponseText('')
+    setFeedback(null)
+  }
+
+  function selectStation(s: StationWithOwner) {
+    setSelectedStation(s)
+    setStationAction(null)
+    setFeedback(null)
+  }
+
+  function handleSend() {
+    startTransition(async () => {
+      if (tab === 'users' && selectedUser && userAction) {
+        const endpoint = userAction === 'accept' ? '/admin/approve-user' : '/admin/deny-user'
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: selectedUser.id }),
+        })
+        const data = await res.json()
+        if (res.ok) {
+          setFeedback({ msg: userAction === 'accept' ? 'User approved.' : 'User denied.', ok: true })
+          setLocalUsers(prev => {
+            const next = prev.filter(u => u.id !== selectedUser.id)
+            setSelectedUser(next[0] ?? null)
+            return next
+          })
+          setUserAction(null)
+          setResponseText('')
+          router.refresh()
+        } else {
+          setFeedback({ msg: data.error || 'Something went wrong.', ok: false })
+        }
+      }
+
+      if (tab === 'stations' && selectedStation && stationAction === 'remove') {
+        const result = await deleteProviderStation(selectedStation.id)
+        if (result.error) {
+          setFeedback({ msg: result.error, ok: false })
+        } else {
+          setFeedback({ msg: 'Station removed.', ok: true })
+          setLocalStations(prev => {
+            const next = prev.filter(s => s.id !== selectedStation.id)
+            setSelectedStation(next[0] ?? null)
+            return next
+          })
+          setStationAction(null)
+          router.refresh()
+        }
+      }
+    })
+  }
+
+  const sendDisabled =
+    isPending ||
+    (tab === 'users' && (!userAction || !selectedUser)) ||
+    (tab === 'stations' && (!stationAction || !selectedStation))
+
+  const [showProfile, setShowProfile] = useState(false)
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0 bg-gray-950 text-white">
+
+      {/* Profile modal */}
+      {showProfile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowProfile(false)}
+        >
+          <div
+            className="w-96 rounded-2xl bg-[#111318] border border-white/6 p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-sm font-semibold text-white">My Details</p>
+              <button onClick={() => setShowProfile(false)} className="text-gray-500 hover:text-white text-lg leading-none transition">✕</button>
+            </div>
+            <AdminProfileForm
+              firstName={adminFirstName}
+              lastName={adminLastName}
+              email={adminEmail}
+              role="Administrator"
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col flex-1 min-h-0 p-6 gap-5">
+
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <div>
+            <p className="text-2xl font-bold tracking-tight">{adminFirstName} {adminLastName}</p>
+            <p className="text-sm text-gray-500 mt-0.5">Administrator</p>
+          </div>
+          <button
+            onClick={() => setShowProfile(true)}
+            className="flex items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/[0.08] px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white transition"
+          >
+            <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-[9px] text-cyan-400 font-bold">
+              {adminFirstName.charAt(0).toUpperCase()}
+            </span>
+            Profile Details
+          </button>
+        </div>
+
+        {/* Two-panel layout */}
+        <div className="flex flex-1 min-h-0 gap-4">
+
+          {/* ── Left: list panel ── */}
+          <div className="w-80 shrink-0 rounded-2xl bg-[#111318] border border-white/6 flex flex-col min-h-0 overflow-hidden">
+            {/* Tabs */}
+            <div className="flex shrink-0 border-b border-white/6">
+              {(['users', 'stations'] as Tab[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => switchTab(t)}
+                  className={`flex-1 py-3 text-xs font-medium transition border-b-2 -mb-px ${
+                    tab === t ? 'text-white border-cyan-500' : 'text-gray-600 border-transparent hover:text-gray-400'
+                  }`}
+                >
+                  {t === 'users' ? 'User Requests' : 'Charger Requests'}
+                </button>
+              ))}
+            </div>
+
+            {/* List header */}
+            <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-white/6">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-300">
+                  {tab === 'users' ? 'Pending Requests' : 'Provider Stations'}
+                </span>
+                <span className="text-[10px] rounded-full bg-white/10 text-gray-400 px-1.5 py-0.5 font-semibold">
+                  {tab === 'users' ? localUsers.length : localStations.length}
+                </span>
+              </div>
+              <div className="relative">
+                <button
+                  onClick={() => setShowSortMenu(v => !v)}
+                  className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg hover:bg-white/[0.05]"
+                >
+                  Sort
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                {showSortMenu && (
+                  <div className="absolute right-0 top-full mt-1 z-20 w-36 rounded-xl bg-[#1a1d24] border border-white/10 shadow-xl overflow-hidden">
+                    {(['newest', 'oldest'] as const).map(opt => (
+                      <button
+                        key={opt}
+                        onClick={() => { setSortOrder(opt); setShowSortMenu(false) }}
+                        className={`w-full text-left px-3 py-2 text-xs transition ${
+                          sortOrder === opt ? 'text-cyan-400 bg-cyan-500/10' : 'text-gray-400 hover:bg-white/[0.05] hover:text-white'
+                        }`}
+                      >
+                        {opt === 'newest' ? 'Newest first' : 'Oldest first'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable list */}
+            <div className="flex-1 overflow-y-auto">
+              {tab === 'users' && (
+                sortedUsers.length === 0
+                  ? <EmptyList label="No pending requests" />
+                  : sortedUsers.map(u => (
+                    <button
+                      key={u.id}
+                      onClick={() => selectUser(u)}
+                      className={`w-full text-left px-4 py-3 border-b border-white/4 transition ${
+                        selectedUser?.id === u.id ? 'bg-white/[0.07]' : 'hover:bg-white/[0.03]'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-white leading-tight">{u.first_name} {u.last_name}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[10px] text-gray-600">Account Type</span>
+                        <span className="text-[10px] text-gray-400 capitalize">{u.user_type}</span>
+                      </div>
+                    </button>
+                  ))
+              )}
+              {tab === 'stations' && (
+                sortedStations.length === 0
+                  ? <EmptyList label="No stations" />
+                  : sortedStations.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => selectStation(s)}
+                      className={`w-full text-left px-4 py-3 border-b border-white/4 transition ${
+                        selectedStation?.id === s.id ? 'bg-white/[0.07]' : 'hover:bg-white/[0.03]'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-white leading-tight">{s.ownerName || '—'}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[10px] text-gray-600">Location</span>
+                        <span className="text-[10px] text-gray-400 truncate max-w-32">{s.address}</span>
+                      </div>
+                    </button>
+                  ))
+              )}
+            </div>
+          </div>
+
+          {/* ── Center: detail panel (detail left + actions right) ── */}
+          <div className="flex-1 rounded-2xl bg-[#111318] border border-white/6 min-h-0 overflow-hidden flex">
+
+            {/* Detail fields */}
+            <div className="flex-1 p-7 overflow-y-auto">
+              {tab === 'users' && selectedUser && (
+                <>
+                  <div className="flex items-start justify-between mb-7">
+                    <h2 className="text-base font-bold">User Request</h2>
+                    <span className="text-[10px] text-gray-600 font-mono tracking-wide">
+                      {new Date(selectedUser.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className="space-y-5">
+                    <DetailField label="Name" value={`${selectedUser.first_name ?? ''} ${selectedUser.last_name ?? ''}`.trim()} />
+                    <DetailField label="Account type" value={selectedUser.user_type} capitalize />
+                    <hr className="border-white/6" />
+                    <DetailField label="ID" value={selectedUser.id_number || '—'} />
+                    <DetailField label="Phone number" value={selectedUser.phone || '—'} />
+                    <DetailField label="Email" value={selectedUser.email} />
+                    <hr className="border-white/6" />
+                    <DetailField label="Request reason" value={selectedUser.request_reason?.trim() || '—'} />
+                  </div>
+                </>
+              )}
+              {tab === 'users' && !selectedUser && <EmptyCenterPanel label="Select a user to view their details" />}
+
+              {tab === 'stations' && selectedStation && (
+                <>
+                  <div className="mb-7">
+                    <h2 className="text-base font-bold">Charger Request</h2>
+                  </div>
+                  <div className="space-y-5">
+                    <DetailField label="Owner" value={selectedStation.ownerName || '—'} />
+                    <DetailField label="Phone" value={selectedStation.ownerPhone || '—'} />
+                    <hr className="border-white/6" />
+                    <DetailField label="Address" value={selectedStation.address} />
+                    <DetailField label="Station type" value={selectedStation.station_type === 'FAST' ? 'Fast Charging' : 'Slow Charging'} />
+                    <DetailField label="Coordinates" value={`${selectedStation.lat.toFixed(5)}, ${selectedStation.lng.toFixed(5)}`} />
+                    <hr className="border-white/6" />
+                    <div>
+                      <p className="text-xs text-gray-600 mb-2">Location</p>
+                      <StationMiniMap lat={selectedStation.lat} lng={selectedStation.lng} address={selectedStation.address} />
+                    </div>
+                  </div>
+                </>
+              )}
+              {tab === 'stations' && !selectedStation && <EmptyCenterPanel label="Select a station to view details" />}
+            </div>
+
+            {/* ── Response actions (right column) ── */}
+            <div className="w-60 shrink-0 border-l border-white/6 p-5 flex flex-col gap-3">
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Request Response</p>
+
+              {tab === 'users' ? (
+                <>
+                  <ActionButton label="Accept" active={userAction === 'accept'} variant="green" icon="check"
+                    onClick={() => setUserAction(userAction === 'accept' ? null : 'accept')} />
+                  <ActionButton label="Deny" active={userAction === 'deny'} variant="red" icon="x"
+                    onClick={() => setUserAction(userAction === 'deny' ? null : 'deny')} />
+                  <textarea
+                    value={responseText}
+                    onChange={e => setResponseText(e.target.value)}
+                    placeholder="Type Response"
+                    rows={5}
+                    className="w-full rounded-xl bg-black/40 border border-white/[0.07] text-sm text-gray-300 placeholder:text-gray-700 p-3 outline-none focus:border-cyan-500/40 resize-none transition"
+                  />
+                </>
+              ) : (
+                <>
+                  <ActionButton label="Keep Station" active={stationAction === null} variant="green" icon="check"
+                    onClick={() => setStationAction(null)} />
+                  <ActionButton label="Remove" active={stationAction === 'remove'} variant="red" icon="x"
+                    onClick={() => setStationAction(stationAction === 'remove' ? null : 'remove')} />
+                </>
+              )}
+
+              <div className="flex-1" />
+
+              {feedback && (
+                <p className={`text-xs text-center py-1.5 rounded-lg ${feedback.ok ? 'text-emerald-400 bg-emerald-400/10' : 'text-red-400 bg-red-400/10'}`}>
+                  {feedback.msg}
+                </p>
+              )}
+
+              <button
+                onClick={handleSend}
+                disabled={sendDisabled}
+                className="w-full rounded-xl bg-emerald-800/70 hover:bg-emerald-700/80 disabled:opacity-25 disabled:cursor-not-allowed text-white px-4 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition"
+              >
+                {isPending ? 'Sending…' : 'Send'}
+                <CheckIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Sub-components ── */
+
+function DetailField({ label, value, capitalize }: { label: string; value: string; capitalize?: boolean }) {
+  return (
+    <div>
+      <p className={`text-base font-semibold text-white ${capitalize ? 'capitalize' : ''}`}>{value}</p>
+      <p className="text-xs text-gray-600 mt-0.5">{label}</p>
+    </div>
+  )
+}
+
+function EmptyList({ label }: { label: string }) {
+  return (
+    <div className="flex items-center justify-center py-12 text-xs text-gray-700">{label}</div>
+  )
+}
+
+function EmptyCenterPanel({ label }: { label: string }) {
+  return (
+    <div className="flex items-center justify-center h-full text-sm text-gray-700">{label}</div>
+  )
+}
+
+function ActionButton({
+  label, active, variant, icon, onClick,
+}: {
+  label: string
+  active: boolean
+  variant: 'green' | 'red'
+  icon: 'check' | 'x'
+  onClick: () => void
+}) {
+  const base = 'w-full rounded-xl px-4 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-all'
+  const styles = {
+    green: {
+      active: 'bg-emerald-600 text-white ring-2 ring-emerald-500/40',
+      idle: 'bg-emerald-600/10 border border-emerald-600/30 text-emerald-400 hover:bg-emerald-600/20',
+    },
+    red: {
+      active: 'bg-red-600 text-white ring-2 ring-red-500/40',
+      idle: 'bg-transparent border border-red-500/30 text-red-400 hover:bg-red-500/10',
+    },
+  }
+  return (
+    <button onClick={onClick} className={`${base} ${active ? styles[variant].active : styles[variant].idle}`}>
+      {label}
+      {icon === 'check' ? <CheckIcon className="w-4 h-4" /> : <XIcon className="w-4 h-4" />}
+    </button>
+  )
+}
+
+function CheckIcon({ className }: { className: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  )
+}
+
+function XIcon({ className }: { className: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}

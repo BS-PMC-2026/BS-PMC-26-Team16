@@ -34,25 +34,19 @@ export default async function Navbar() {
           <>
             <span className="text-gray-300 text-sm">{greeting}</span>
 
-            <Link href="/User" className="text-gray-300 hover:text-white text-sm">
-              Dashboard
-            </Link>
+            {!isAdmin && (
+              <Link href="/User" className="text-gray-300 hover:text-white text-sm">
+                Dashboard
+              </Link>
+            )}
 
             {isAdmin && (
-              <>
-                <Link
-                  href="/admin/approvals"
-                  className="text-yellow-400 hover:text-yellow-300 text-sm font-semibold"
-                >
-                  Approvals
-                </Link>
-                <Link
-                  href="/admin/stations"
-                  className="text-cyan-400 hover:text-cyan-300 text-sm font-semibold"
-                >
-                  Stations
-                </Link>
-              </>
+              <Link
+                href="/admin"
+                className="text-cyan-400 hover:text-cyan-300 text-sm font-semibold"
+              >
+                Admin Panel
+              </Link>
             )}
 
             <LogoutButton />
