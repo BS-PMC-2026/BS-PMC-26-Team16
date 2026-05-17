@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { cancelVisit } from './actions'
 
 export type ActiveVisit = {
@@ -28,11 +28,40 @@ function useElapsed(since: string) {
   return elapsed
 }
 
+function useCountdown(since: string, limitMinutes = 30) {
+  const deadline = new Date(since).getTime() + limitMinutes * 60 * 1000
+  const [remaining, setRemaining] = useState(() => Math.max(0, Math.floor((deadline - Date.now()) / 1000)))
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setRemaining(Math.max(0, Math.floor((deadline - Date.now()) / 1000)))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [deadline])
+
+  const m = Math.floor(remaining / 60)
+  const s = remaining % 60
+  return { remaining, expired: remaining === 0, formatted: `${m}:${s.toString().padStart(2, '0')}` }
+}
+
 export default function ProviderActiveVisitPanel({ visit }: { visit: ActiveVisit }) {
   const elapsed = useElapsed(visit.created_at)
+  const { expired, formatted: countdown, remaining } = useCountdown(visit.created_at)
   const [cancelled, setCancelled] = useState(false)
   const [error, setError] = useState('')
   const [, startTransition] = useTransition()
+  const autoCancelledRef = useRef(false)
+
+  const hasArrived = visit.status === 'arrived'
+
+  useEffect(() => {
+    if (hasArrived || cancelled || !expired || autoCancelledRef.current) return
+    autoCancelledRef.current = true
+    startTransition(async () => {
+      await cancelVisit(visit.id)
+      setCancelled(true)
+    })
+  }, [expired, hasArrived, cancelled])
 
   function handleCancel() {
     startTransition(async () => {
@@ -50,7 +79,7 @@ export default function ProviderActiveVisitPanel({ visit }: { visit: ActiveVisit
     )
   }
 
-  const hasArrived = visit.status === 'arrived'
+  const isUrgent = !hasArrived && remaining <= 5 * 60 && remaining > 0
 
   return (
     <section className={`mt-8 rounded-[2rem] border p-6 shadow-2xl backdrop-blur ${
@@ -100,11 +129,17 @@ export default function ProviderActiveVisitPanel({ visit }: { visit: ActiveVisit
           </div>
         )}
 
-        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-          <span className="text-2xl">⏱️</span>
+        <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${
+          isUrgent ? 'border-red-500/40 bg-red-500/10' : 'border-white/10 bg-white/5'
+        }`}>
+          <span className="text-2xl">{hasArrived ? '⏱️' : isUrgent ? '⚠️' : '⏳'}</span>
           <div>
-            <p className="text-xs text-gray-400">{hasArrived ? 'Time since arrival' : 'Time since departure'}</p>
-            <p className="text-white font-medium font-mono">{elapsed}</p>
+            <p className={`text-xs ${isUrgent ? 'text-red-400' : 'text-gray-400'}`}>
+              {hasArrived ? 'Time since arrival' : 'Auto-cancel in'}
+            </p>
+            <p className={`font-medium font-mono text-lg ${isUrgent ? 'text-red-300' : 'text-white'}`}>
+              {hasArrived ? elapsed : countdown}
+            </p>
           </div>
         </div>
       </div>
