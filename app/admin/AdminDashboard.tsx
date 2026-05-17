@@ -42,9 +42,11 @@ type Props = {
   adminEmail: string
   pendingUsers: PendingUser[]
   stations: StationWithOwner[]
+  totalActiveUsers: number
+  totalMapStations: number
 }
 
-export default function AdminDashboard({ adminFirstName, adminLastName, adminEmail, pendingUsers, stations }: Props) {
+export default function AdminDashboard({ adminFirstName, adminLastName, adminEmail, pendingUsers, stations, totalActiveUsers, totalMapStations }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('users')
   const [localUsers, setLocalUsers] = useState(pendingUsers)
@@ -190,7 +192,9 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
         {/* Header */}
         <div className="flex items-center gap-4">
           <div>
-            <p className="text-2xl font-bold tracking-tight">{adminFirstName} {adminLastName}</p>
+            <p className="text-2xl font-bold tracking-tight">
+              {(() => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening' })()}, {adminFirstName}
+            </p>
             <p className="text-sm text-gray-500 mt-0.5">Administrator</p>
           </div>
           <button
@@ -202,6 +206,24 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
             </span>
             Profile Details
           </button>
+        </div>
+
+        {/* Stats row */}
+        <div className="flex gap-3 shrink-0 items-center">
+          {[
+            { label: 'Active Users', value: totalActiveUsers, color: 'text-emerald-400' },
+            { label: 'Pending Users', value: localUsers.length, color: 'text-rose-400' },
+            { label: 'Stations on Map', value: totalMapStations, color: 'text-cyan-400' },
+            { label: 'New Station Requests', value: localStations.length, color: 'text-amber-400' },
+          ].map(({ label, value, color }, i, arr) => (
+            <div key={label} className="flex items-center gap-2.5">
+              <div className="flex items-baseline gap-2">
+                <span className={`text-base font-bold tabular-nums ${color}`}>{value}</span>
+                <span className="text-xs text-gray-500">{label}</span>
+              </div>
+              {i < arr.length - 1 && <span className="text-white/12 text-sm">|</span>}
+            </div>
+          ))}
         </div>
 
         {/* Two-panel layout */}

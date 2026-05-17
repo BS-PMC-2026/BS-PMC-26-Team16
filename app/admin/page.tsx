@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation'
+import { readFile } from 'fs/promises'
+import path from 'path'
 import { createClient } from '@/lib/supabase/server'
 import AdminDashboard, { type StationWithOwner } from './AdminDashboard'
 
@@ -16,7 +18,12 @@ export default async function AdminDashboardPage() {
 
   if (!profile || profile.user_type !== 'admin' || !profile.is_approved) redirect('/')
 
-  const [{ data: pendingUsers }, { data: allStations }] = await Promise.all([
+  const [
+    { data: pendingUsers },
+    { data: allStations },
+    { count: activeUserCount },
+    geojsonRaw,
+  ] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, first_name, last_name, email, phone, id_number, user_type, request_reason, created_at')
@@ -26,7 +33,15 @@ export default async function AdminDashboardPage() {
       .from('charging_stations')
       .select('id, address, lat, lng, station_type, user_id')
       .order('id', { ascending: false }),
+    supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_approved', true)
+      .neq('user_type', 'admin'),
+    readFile(path.join(process.cwd(), 'public', 'AGG_CHARGE_STATIONS.geojson'), 'utf-8'),
   ])
+
+  const geoStationCount: number = JSON.parse(geojsonRaw).features.length
 
   let stations: StationWithOwner[] = []
 
@@ -64,6 +79,8 @@ export default async function AdminDashboardPage() {
       adminEmail={profile.email ?? user.email ?? ''}
       pendingUsers={pendingUsers ?? []}
       stations={stations}
+      totalActiveUsers={activeUserCount ?? 0}
+      totalMapStations={geoStationCount + (allStations?.length ?? 0)}
     />
   )
 }
