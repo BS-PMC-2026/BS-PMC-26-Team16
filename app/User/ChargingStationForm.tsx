@@ -10,6 +10,8 @@ type ChargingStation = {
   lat: number
   lng: number
   station_type: string
+  opening_time: string | null
+  closing_time: string | null
 }
 
 export default function ChargingStationForm({ existingStation }: { existingStation: ChargingStation | null }) {
@@ -20,6 +22,8 @@ export default function ChargingStationForm({ existingStation }: { existingStati
   const [stationType, setStationType] = useState(
     existingStation?.station_type === 'FAST' ? 'FAST' : 'SLOW'
   )
+  const [openingTime, setOpeningTime] = useState(existingStation?.opening_time ?? '')
+  const [closingTime, setClosingTime] = useState(existingStation?.closing_time ?? '')
   const [geocoding, setGeocoding] = useState(false)
   const [geoError, setGeoError] = useState('')
 
@@ -123,6 +127,53 @@ export default function ChargingStationForm({ existingStation }: { existingStati
           </select>
           {state.errors.station_type && (
             <p className="mt-1 text-sm text-red-300">{state.errors.station_type[0]}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-200">
+            Opening hours <span className="text-gray-400">(optional — if not set, station is always open)</span>
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="openingTime" className="mb-1 block text-xs text-gray-400">Opens at</label>
+              <input
+                id="openingTime"
+                name="opening_time"
+                type="time"
+                value={openingTime}
+                onChange={(e) => setOpeningTime(e.target.value)}
+                disabled={pending}
+                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+              />
+              {state.errors.opening_time && (
+                <p className="mt-1 text-sm text-red-300">{state.errors.opening_time[0]}</p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="closingTime" className="mb-1 block text-xs text-gray-400">Closes at</label>
+              <input
+                id="closingTime"
+                name="closing_time"
+                type="time"
+                value={closingTime}
+                onChange={(e) => setClosingTime(e.target.value)}
+                disabled={pending}
+                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+              />
+              {state.errors.closing_time && (
+                <p className="mt-1 text-sm text-red-300">{state.errors.closing_time[0]}</p>
+              )}
+            </div>
+          </div>
+          {(openingTime || closingTime) && (
+            <button
+              type="button"
+              onClick={() => { setOpeningTime(''); setClosingTime('') }}
+              className="mt-2 text-xs text-gray-400 hover:text-red-300 transition"
+            >
+              ✕ Clear hours (always open)
+            </button>
           )}
         </div>
 
