@@ -98,6 +98,23 @@ export default function LoginPage() {
         return;
       }
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_approved, user_type")
+          .eq("id", user.id)
+          .single();
+
+        const canAccess = profile?.user_type === "admin" || profile?.is_approved === true;
+
+        if (!canAccess) {
+          await supabase.auth.signOut();
+          setMessage("Your account is pending admin approval. Please try again once you've been approved.");
+          return;
+        }
+      }
+
       setShowSuccess(true);
 
       setTimeout(() => {

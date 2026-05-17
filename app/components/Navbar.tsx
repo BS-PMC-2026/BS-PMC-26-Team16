@@ -41,32 +41,25 @@ export default async function Navbar() {
       <h1 className="text-xl font-bold">Urban EV</h1>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Link href="/" className="text-gray-300 hover:text-white text-sm">Home</Link>
         <Link href="/map" className="text-gray-300 hover:text-white text-sm">Map</Link>
 
         {user ? (
           <>
             <span className="text-gray-300 text-sm">{greeting}</span>
 
-            <Link href="/User" className="text-gray-300 hover:text-white text-sm">
-              Dashboard
-            </Link>
+            {!isAdmin && (
+              <Link href="/User" className="text-gray-300 hover:text-white text-sm">
+                Dashboard
+              </Link>
+            )}
 
             {isAdmin && (
-              <>
-                <Link
-                  href="/admin/approvals"
-                  className="text-yellow-400 hover:text-yellow-300 text-sm font-semibold"
-                >
-                  Approvals
-                </Link>
-                <Link
-                  href="/admin/stations"
-                  className="text-cyan-400 hover:text-cyan-300 text-sm font-semibold"
-                >
-                  Stations
-                </Link>
-              </>
+              <Link
+                href="/admin"
+                className="text-cyan-400 hover:text-cyan-300 text-sm font-semibold"
+              >
+                Admin Panel
+              </Link>
             )}
 
             {isProvider && <NotificationBell initial={navNotifications} />}

@@ -13,7 +13,7 @@ export default function ApproveButton({ userId }: { userId: string }) {
       setLoading(true);
       setMessage("");
 
-      const response = await fetch("/api/admin/approve-user", {
+      const response = await fetch("/admin/approve-user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
