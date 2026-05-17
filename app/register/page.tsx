@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { registerUser } from "../../services/registerUser";
 import { getStrongPasswordErrors } from "../../services/passwordValidation";
 import "./RegisterPage.css";
@@ -20,8 +22,10 @@ type ErrorType = Partial<Record<keyof FormDataType, string>>;
 type TouchedType = Partial<Record<keyof FormDataType, boolean>>;
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
+  const [countdown, setCountdown] = useState(5);
 
   const [form, setForm] = useState<FormDataType>({
     firstName: "",
@@ -38,6 +42,13 @@ export default function RegisterPage() {
   const [touched, setTouched] = useState<TouchedType>({});
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (!submitted) return;
+    if (countdown <= 0) { router.push("/login"); return; }
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [submitted, countdown, router]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -208,6 +219,15 @@ export default function RegisterPage() {
       ? "register-input register-textarea register-input-error"
       : "register-input register-textarea";
 
+  const backToLoginBtn = (
+    <Link
+      href="/login"
+      className="register-back-link"
+    >
+      ← Back to Login
+    </Link>
+  );
+
   if (submitted) {
     return (
       <div className="register-page">
@@ -218,6 +238,7 @@ export default function RegisterPage() {
           <span className="register-shape register-shape-four" />
           <span className="register-shape register-shape-five" />
         </div>
+        {backToLoginBtn}
 
         <div className="register-card register-card-center">
           <div className="register-success-icon">✅</div>
@@ -225,6 +246,12 @@ export default function RegisterPage() {
           <p className="register-subtitle register-subtitle-success">
             We&apos;ll review your details and get back to you soon.
           </p>
+          <p className="register-subtitle">
+            Redirecting to login in {countdown}s...
+          </p>
+          <Link href="/login" className="register-primary-button" style={{ display: "inline-block", marginTop: "1rem", textAlign: "center" }}>
+            Go to Login now
+          </Link>
         </div>
       </div>
     );
@@ -239,6 +266,7 @@ export default function RegisterPage() {
         <span className="register-shape register-shape-four" />
         <span className="register-shape register-shape-five" />
       </div>
+      {backToLoginBtn}
 
       <div className="register-shell">
         <div className="register-header">

@@ -144,6 +144,8 @@ export default function LoginPage() {
         <span className="login-shape login-shape-five" />
       </div>
 
+      <Link href="/" className="login-back-link">← Back to Home</Link>
+
       {showSuccess && (
         <div className="login-overlay">
           <div className="login-success-modal">

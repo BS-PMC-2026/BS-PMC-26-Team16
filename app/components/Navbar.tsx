@@ -52,6 +52,12 @@ export default async function Navbar() {
               </Link>
             )}
 
+            {!isAdmin && (
+              <Link href="/map" className="text-gray-300 hover:text-white text-sm">
+                Map
+              </Link>
+            )}
+
             {isAdmin && (
               <Link
                 href="/admin"
