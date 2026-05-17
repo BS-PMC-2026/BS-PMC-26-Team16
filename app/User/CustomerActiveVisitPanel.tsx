@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { markArrived, completeVisit, cancelVisit, submitRating } from './actions'
 
 export type CustomerVisit = {
@@ -26,6 +26,22 @@ function useElapsed(since: string) {
     return () => clearInterval(id)
   }, [since])
   return elapsed
+}
+
+function useCountdown(since: string, limitMinutes = 30) {
+  const deadline = new Date(since).getTime() + limitMinutes * 60 * 1000
+  const [remaining, setRemaining] = useState(() => Math.max(0, Math.floor((deadline - Date.now()) / 1000)))
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setRemaining(Math.max(0, Math.floor((deadline - Date.now()) / 1000)))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [deadline])
+
+  const m = Math.floor(remaining / 60)
+  const s = remaining % 60
+  return { remaining, expired: remaining === 0, formatted: `${m}:${s.toString().padStart(2, '0')}` }
 }
 
 function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -59,11 +75,22 @@ function initialPhase(visit: CustomerVisit): Phase {
 
 export default function CustomerActiveVisitPanel({ visit }: { visit: CustomerVisit }) {
   const elapsed = useElapsed(visit.created_at)
+  const { expired, formatted: countdown, remaining } = useCountdown(visit.created_at)
   const [phase, setPhase] = useState<Phase>(initialPhase(visit))
   const [score, setScore] = useState(0)
   const [comment, setComment] = useState('')
   const [error, setError] = useState('')
   const [, startTransition] = useTransition()
+  const autoCancelledRef = useRef(false)
+
+  useEffect(() => {
+    if (phase !== 'on_the_way' || !expired || autoCancelledRef.current) return
+    autoCancelledRef.current = true
+    startTransition(async () => {
+      await cancelVisit(visit.id)
+      setPhase('done')
+    })
+  }, [expired, phase])
 
   function handleArrived() {
     setError('')
@@ -181,6 +208,8 @@ export default function CustomerActiveVisitPanel({ visit }: { visit: CustomerVis
     )
   }
 
+  const isUrgent = remaining <= 5 * 60 && remaining > 0
+
   // phase === 'on_the_way'
   return (
     <section className="mt-8 rounded-[2rem] border border-cyan-500/20 bg-slate-950/70 p-6 shadow-2xl shadow-cyan-950/20 backdrop-blur">
@@ -191,11 +220,17 @@ export default function CustomerActiveVisitPanel({ visit }: { visit: CustomerVis
         </p>
       </div>
 
-      <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 mb-6">
-        <span className="text-2xl">⏱️</span>
+      <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 mb-6 ${
+        isUrgent ? 'border-red-500/40 bg-red-500/10' : 'border-white/10 bg-white/5'
+      }`}>
+        <span className="text-2xl">{isUrgent ? '⚠️' : '⏳'}</span>
         <div>
-          <p className="text-xs text-gray-400">Time since departure</p>
-          <p className="text-white font-medium font-mono">{elapsed}</p>
+          <p className={`text-xs ${isUrgent ? 'text-red-400' : 'text-gray-400'}`}>
+            Auto-cancel in
+          </p>
+          <p className={`font-medium font-mono text-lg ${isUrgent ? 'text-red-300' : 'text-white'}`}>
+            {countdown}
+          </p>
         </div>
       </div>
 
