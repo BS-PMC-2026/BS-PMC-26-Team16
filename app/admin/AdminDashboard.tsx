@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { approveProviderStation, deleteProviderStation } from '@/app/admin/stations/actions'
+import { deleteProviderStation } from '@/app/admin/stations/actions'
 import AdminProfileForm from '@/app/User/AdminProfileForm'
 import StationMiniMap from '@/app/admin/StationMiniMap'
 import { createClient } from '@/lib/supabase/client'
@@ -134,22 +134,6 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
           router.refresh()
         } else {
           setFeedback({ msg: data.error || 'Something went wrong.', ok: false })
-        }
-      }
-
-      if (tab === 'stations' && selectedStation && stationAction === 'keep') {
-        const result = await approveProviderStation(selectedStation.id)
-        if (result.error) {
-          setFeedback({ msg: result.error, ok: false })
-        } else {
-          setFeedback({ msg: 'Station approved.', ok: true })
-          setLocalStations(prev => {
-            const next = prev.filter(s => s.id !== selectedStation.id)
-            setSelectedStation(next[0] ?? null)
-            return next
-          })
-          setStationAction(null)
-          router.refresh()
         }
       }
 
