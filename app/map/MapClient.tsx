@@ -11,6 +11,48 @@ export default function MapClient({ providerStations }: { providerStations: Prov
   const providerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([])
   const activeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null)
 
+  // Expose handler for "on my way" button inside InfoWindow HTML
+  useEffect(() => {
+    (window as Window & { stationOnMyWay?: (id: string, lat: number, lng: number, btn: HTMLButtonElement) => void }).stationOnMyWay = async (
+      stationId: string,
+      lat: number,
+      lng: number,
+      btn: HTMLButtonElement
+    ) => {
+      btn.disabled = true
+      btn.textContent = 'Saving...'
+
+      try {
+        const res = await fetch('/api/station-visit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stationId }),
+        })
+        const data = await res.json()
+
+        if (res.ok) {
+          btn.textContent = '✅ On my way!'
+          btn.style.background = '#16a34a'
+          window.open(
+            `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+            '_blank'
+          )
+        } else {
+          btn.textContent = data.error ?? 'Error'
+          btn.disabled = false
+          btn.style.background = '#dc2626'
+        }
+      } catch {
+        btn.textContent = 'Network error'
+        btn.disabled = false
+      }
+    }
+
+    return () => {
+      delete (window as Window & { stationOnMyWay?: unknown }).stationOnMyWay
+    }
+  }, [])
+
   const syncProviderMarkers = useCallback(async () => {
     const map = mapInstanceRef.current
     if (!map || !window.google) return
@@ -21,12 +63,27 @@ export default function MapClient({ providerStations }: { providerStations: Prov
     const { AdvancedMarkerElement } = await google.maps.importLibrary('marker') as google.maps.MarkerLibrary
 
     for (const station of providerStations) {
+      const { isOpen, isLocked } = station
+
       const pin = document.createElement('div')
       pin.style.cssText = 'position:relative;display:inline-block;'
-      pin.innerHTML = `
-        <span style="font-size:20px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))">🏠</span>
-        <span style="position:absolute;top:-5px;right:-5px;background:#0e3a5c;border:1.5px solid #22d3ee;border-radius:50%;width:13px;height:13px;display:flex;align-items:center;justify-content:center;font-size:8px;box-shadow:0 1px 4px rgba(34,211,238,0.5)">⚡</span>
-      `
+
+      if (!isOpen) {
+        pin.innerHTML = `
+          <span style="font-size:20px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));opacity:0.55">🏠</span>
+          <span style="position:absolute;top:-5px;right:-5px;font-size:13px;line-height:1">🌙</span>
+        `
+      } else if (isLocked) {
+        pin.innerHTML = `
+          <span style="font-size:20px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));opacity:0.7">🏠</span>
+          <span style="position:absolute;top:-5px;right:-5px;font-size:13px;line-height:1">🔒</span>
+        `
+      } else {
+        pin.innerHTML = `
+          <span style="font-size:20px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))">🏠</span>
+          <span style="position:absolute;top:-5px;right:-5px;background:#0e3a5c;border:1.5px solid #22d3ee;border-radius:50%;width:13px;height:13px;display:flex;align-items:center;justify-content:center;font-size:8px;box-shadow:0 1px 4px rgba(34,211,238,0.5)">⚡</span>
+        `
+      }
 
       const marker = new AdvancedMarkerElement({
         position: { lat: station.lat, lng: station.lng },
@@ -37,18 +94,39 @@ export default function MapClient({ providerStations }: { providerStations: Prov
 
       const stationTypeLabel = station.stationType === 'FAST' ? 'Fast Charging' : 'Slow Charging'
 
+      const hoursLine = station.openingTime && station.closingTime
+        ? `<p style="margin:0 0 3px;font-size:12px;color:#555">🕐 ${station.openingTime.slice(0, 5)} – ${station.closingTime.slice(0, 5)}</p>`
+        : ''
+
+      let actionHtml: string
+      if (!isOpen) {
+        actionHtml = `
+          <div style="width:100%;padding:7px 0;background:#374151;color:#9ca3af;border:none;border-radius:8px;font-size:13px;font-weight:bold;text-align:center;cursor:default">
+            🌙 Closed now
+          </div>`
+      } else if (isLocked) {
+        actionHtml = `
+          <div style="width:100%;padding:7px 0;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:bold;text-align:center;cursor:default">
+            🔒 Someone is already on the way
+          </div>`
+      } else {
+        actionHtml = `
+          <button
+            onclick="window.stationOnMyWay('${station.id}',${station.lat},${station.lng},this)"
+            style="width:100%;padding:7px 0;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold">
+            I'm on my way 🚗
+          </button>`
+      }
+
       const infoWindow = new google.maps.InfoWindow({
         content: `<div style="padding:10px 12px 10px;color:#111;font-family:sans-serif;min-width:200px;max-width:240px">
           <p style="font-weight:bold;margin:0 0 6px;font-size:14px">🏠 Private Charging Station</p>
           ${station.providerName ? `<p style="margin:0 0 3px;font-size:13px;color:#333">👤 ${station.providerName}</p>` : ''}
           ${station.phone ? `<p style="margin:0 0 3px;font-size:13px;color:#333">📞 ${station.phone}</p>` : ''}
           <p style="margin:0 0 3px;font-size:12px;color:#555">📍 ${station.address}</p>
-          <p style="margin:0 0 10px;font-size:12px;color:#555">⚡ ${stationTypeLabel}</p>
-          <button
-            onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}','_blank')"
-            style="width:100%;padding:7px 0;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold">
-            On my way 🚗
-          </button>
+          <p style="margin:0 0 3px;font-size:12px;color:#555">⚡ ${stationTypeLabel}</p>
+          ${hoursLine}
+          <div style="margin-top:10px">${actionHtml}</div>
         </div>`,
         pixelOffset: new google.maps.Size(0, -4),
       })
@@ -128,7 +206,7 @@ export default function MapClient({ providerStations }: { providerStations: Prov
           <p style="font-weight:bold;margin:0 0 4px">${p.name}</p>
           <p style="margin:0 0 2px;color:#555">${p.op}</p>
           <p style="margin:0 0 2px">${p.Address}</p>
-          <p style="margin:4px 0 0;font-size:12px">⚡ ${p.count} עמדות &nbsp;|&nbsp; מהיר: ${p.cnt_fast} &nbsp;|&nbsp; איטי: ${p.cnt_slow}</p>
+          <p style="margin:4px 0 0;font-size:12px">⚡ ${p.count} stations &nbsp;|&nbsp; Fast: ${p.cnt_fast} &nbsp;|&nbsp; Slow: ${p.cnt_slow}</p>
         </div>`,
       })
 
@@ -142,20 +220,18 @@ export default function MapClient({ providerStations }: { providerStations: Prov
     await syncProviderMarkers()
   }
 
-  // Initialize map once on mount (handles case where Google Maps is already loaded)
   useEffect(() => {
     if (window.google) initMap()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Re-sync only the provider markers when data changes, without recreating the whole map
   useEffect(() => {
     syncProviderMarkers()
   }, [syncProviderMarkers])
 
   return (
     <>
-      <div ref={mapRef} className="w-full h-125 rounded-xl" />
+      <div ref={mapRef} className="w-full flex-1" />
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=marker`}
         onLoad={initMap}

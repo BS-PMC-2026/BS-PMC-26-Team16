@@ -89,13 +89,15 @@ export async function upsertChargingStation(
     lat: String(formData.get('lat') ?? ''),
     lng: String(formData.get('lng') ?? ''),
     station_type: String(formData.get('station_type') ?? 'AC'),
+    opening_time: String(formData.get('opening_time') ?? ''),
+    closing_time: String(formData.get('closing_time') ?? ''),
   })
 
   if (!validated.success) {
     return { errors: validated.errors, message: 'Please fix the highlighted fields and try again.', success: false }
   }
 
-  const { address, lat, lng, station_type } = validated.data
+  const { address, lat, lng, station_type, opening_time, closing_time } = validated.data
 
   const { data: existing } = await supabase
     .from('charging_stations')
@@ -103,9 +105,11 @@ export async function upsertChargingStation(
     .eq('user_id', user.id)
     .maybeSingle()
 
+  const stationData = { address, lat, lng, station_type, opening_time, closing_time }
+
   const { error: dbError } = existing
-    ? await supabase.from('charging_stations').update({ address, lat, lng, station_type }).eq('user_id', user.id)
-    : await supabase.from('charging_stations').insert({ user_id: user.id, address, lat, lng, station_type })
+    ? await supabase.from('charging_stations').update(stationData).eq('user_id', user.id)
+    : await supabase.from('charging_stations').insert({ user_id: user.id, ...stationData })
 
   if (dbError) {
     return { ...initialChargingStationState, message: dbError.message }
@@ -269,4 +273,150 @@ async function updateProfileByRole({
             : 'Profile updated successfully.',
     success: true,
   }
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('id', notificationId)
+    .eq('recipient_id', user.id)
+}
+
+export async function markArrived(visitId: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+
+  const { data: visit } = await supabase
+    .from('station_visits')
+    .select('station_id, visitor_name')
+    .eq('id', visitId)
+    .eq('visitor_id', user.id)
+    .eq('status', 'on_the_way')
+    .single()
+
+  if (!visit) return { error: 'Visit not found.' }
+
+  const { error } = await supabase
+    .from('station_visits')
+    .update({ status: 'arrived' })
+    .eq('id', visitId)
+    .eq('visitor_id', user.id)
+
+  if (error) return { error: error.message }
+
+  // Notify provider that customer arrived
+  const { data: station } = await supabase
+    .from('charging_stations')
+    .select('user_id, address')
+    .eq('id', visit.station_id)
+    .single()
+
+  if (station && station.user_id !== user.id) {
+    await supabase.from('notifications').insert({
+      recipient_id: station.user_id,
+      station_id: visit.station_id,
+      message: `✅ ${visit.visitor_name ?? 'A customer'} has arrived at your station at ${station.address}`,
+    })
+  }
+
+  revalidatePath('/User')
+  return {}
+}
+
+export async function completeVisit(visitId: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+
+  const { error } = await supabase
+    .from('station_visits')
+    .update({ status: 'completed' })
+    .eq('id', visitId)
+    .eq('visitor_id', user.id)
+    .eq('status', 'arrived')
+
+  if (error) return { error: error.message }
+  revalidatePath('/User')
+  return {}
+}
+
+export async function cancelVisit(visitId: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+
+  // Allow visitor OR the station owner to cancel (any active status)
+  const { data: visit } = await supabase
+    .from('station_visits')
+    .select('visitor_id, station_id')
+    .eq('id', visitId)
+    .in('status', ['on_the_way', 'arrived'])
+    .single()
+
+  if (!visit) return { error: 'Visit not found or already resolved.' }
+
+  const isVisitor = visit.visitor_id === user.id
+  const { data: station } = isVisitor ? { data: null } : await supabase
+    .from('charging_stations')
+    .select('user_id')
+    .eq('id', visit.station_id)
+    .single()
+
+  if (!isVisitor && station?.user_id !== user.id) {
+    return { error: 'Not authorized.' }
+  }
+
+  const { error } = await supabase
+    .from('station_visits')
+    .update({ status: 'cancelled' })
+    .eq('id', visitId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/User')
+  return {}
+}
+
+export async function submitRating(
+  visitId: string,
+  score: number,
+  comment: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+
+  const { data: visit } = await supabase
+    .from('station_visits')
+    .select('station_id, visitor_id')
+    .eq('id', visitId)
+    .eq('status', 'completed')
+    .single()
+
+  if (!visit || visit.visitor_id !== user.id) return { error: 'Visit not found.' }
+
+  const { data: station } = await supabase
+    .from('charging_stations')
+    .select('user_id')
+    .eq('id', visit.station_id)
+    .single()
+
+  if (!station) return { error: 'Station not found.' }
+
+  const { error } = await supabase.from('ratings').insert({
+    visit_id: visitId,
+    reviewer_id: user.id,
+    provider_id: station.user_id,
+    station_id: visit.station_id,
+    score,
+    comment: comment.trim() || null,
+  })
+
+  if (error) return { error: error.message }
+  revalidatePath('/User')
+  return {}
 }

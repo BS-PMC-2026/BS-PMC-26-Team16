@@ -4,6 +4,9 @@ import AdminProfileForm from './AdminProfileForm'
 import CustomerProfileForm from './CustomerProfileForm'
 import ProviderProfileForm from './ProviderProfileForm'
 import ChargingStationForm from './ChargingStationForm'
+import ProviderNotificationsPanel from './ProviderNotificationsPanel'
+import ProviderActiveVisitPanel from './ProviderActiveVisitPanel'
+import CustomerActiveVisitPanel from './CustomerActiveVisitPanel'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -30,18 +33,94 @@ export default async function DashboardPage() {
   }
 
   const isProvider = profile.user_type === 'provider'
+  const isCustomer = profile.user_type === 'customer'
 
   const { data: chargingStation } = isProvider
     ? await supabase
         .from('charging_stations')
-        .select('id, address, lat, lng, station_type')
+        .select('id, address, lat, lng, station_type, opening_time, closing_time')
         .eq('user_id', user.id)
         .maybeSingle()
     : { data: null }
 
+  const { data: notifications } = isProvider
+    ? await supabase
+        .from('notifications')
+        .select('id, message, read, created_at')
+        .eq('recipient_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20)
+    : { data: null }
+
+  // Provider: find active visit to their station (on_the_way OR arrived)
+  let providerActiveVisit: { id: string; visitor_name: string | null; visitor_phone: string | null; created_at: string; status: 'on_the_way' | 'arrived' } | null = null
+  if (isProvider && chargingStation) {
+    const { data: visit } = await supabase
+      .from('station_visits')
+      .select('id, visitor_name, visitor_id, created_at, status')
+      .eq('station_id', chargingStation.id)
+      .in('status', ['on_the_way', 'arrived'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (visit) {
+      const { data: visitorProfile } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', visit.visitor_id)
+        .single()
+
+      providerActiveVisit = {
+        id: visit.id,
+        visitor_name: visit.visitor_name,
+        visitor_phone: visitorProfile?.phone ?? null,
+        created_at: visit.created_at,
+        status: visit.status as 'on_the_way' | 'arrived',
+      }
+    }
+  }
+
+  // Customer: find their active or recently-completed visit
+  let customerVisit: { id: string; station_address: string; created_at: string; status: 'on_the_way' | 'arrived' | 'completed'; already_rated: boolean } | null = null
+  if (isCustomer) {
+    const { data: visit } = await supabase
+      .from('station_visits')
+      .select('id, station_id, created_at, status')
+      .eq('visitor_id', user.id)
+      .in('status', ['on_the_way', 'arrived', 'completed'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (visit) {
+      const { data: stationData } = await supabase
+        .from('charging_stations')
+        .select('address')
+        .eq('id', visit.station_id)
+        .single()
+
+      const { data: existingRating } = await supabase
+        .from('ratings')
+        .select('id')
+        .eq('visit_id', visit.id)
+        .maybeSingle()
+
+      // Show active visits always; completed only if not yet rated
+      if (visit.status !== 'completed' || !existingRating) {
+        customerVisit = {
+          id: visit.id,
+          station_address: stationData?.address ?? 'Unknown address',
+          created_at: visit.created_at,
+          status: visit.status as 'on_the_way' | 'arrived' | 'completed',
+          already_rated: !!existingRating,
+        }
+      }
+    }
+  }
+
   const fullName = `${profile.first_name} ${profile.last_name}`.trim()
   const isAdmin = profile.user_type === 'admin'
-  const isCustomer = profile.user_type === 'customer'
   const profileTitle = isAdmin
     ? 'Admin Profile'
     : isCustomer
@@ -135,12 +214,15 @@ export default async function DashboardPage() {
                 role={roleLabel}
               />
             ) : isCustomer ? (
-              <CustomerProfileForm
-                firstName={profile.first_name ?? ''}
-                lastName={profile.last_name ?? ''}
-                email={profile.email ?? user.email ?? ''}
-                role={roleLabel}
-              />
+              <>
+                <CustomerProfileForm
+                  firstName={profile.first_name ?? ''}
+                  lastName={profile.last_name ?? ''}
+                  email={profile.email ?? user.email ?? ''}
+                  role={roleLabel}
+                />
+                {customerVisit && <CustomerActiveVisitPanel visit={customerVisit} />}
+              </>
             ) : (
               <>
                 <ProviderProfileForm
@@ -151,6 +233,8 @@ export default async function DashboardPage() {
                   phone={profile.phone ?? ''}
                 />
                 <ChargingStationForm existingStation={chargingStation ?? null} />
+                {providerActiveVisit && <ProviderActiveVisitPanel visit={providerActiveVisit} />}
+                <ProviderNotificationsPanel notifications={notifications ?? []} />
               </>
             )}
           </section>
