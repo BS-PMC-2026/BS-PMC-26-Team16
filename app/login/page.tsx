@@ -130,8 +130,13 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      <div className="login-background-glow-one" />
-      <div className="login-background-glow-two" />
+      <div className="login-pattern" aria-hidden="true">
+        <span className="login-shape login-shape-one" />
+        <span className="login-shape login-shape-two" />
+        <span className="login-shape login-shape-three" />
+        <span className="login-shape login-shape-four" />
+        <span className="login-shape login-shape-five" />
+      </div>
 
       {showSuccess && (
         <div className="login-overlay">
@@ -192,8 +197,8 @@ export default function LoginPage() {
             )}
           </div>
 
-          <div style={{ textAlign: "right", marginTop: "-8px" }}>
-            <Link href="/forgot-password" className="login-footer-link" style={{ fontSize: "13px" }}>
+          <div className="login-forgot-row">
+            <Link href="/forgot-password" className="login-footer-link">
               Forgot password?
             </Link>
           </div>
@@ -207,12 +212,12 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="login-footer-text">
-          Don&apos;t have an account?{" "}
+        <div className="login-footer-text">
+          <span>Dont have a account?</span>
           <Link href="/register" className="login-footer-link">
             Register here
           </Link>
-        </p>
+        </div>
       </div>
     </div>
   );

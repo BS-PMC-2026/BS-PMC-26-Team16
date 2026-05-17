@@ -4,7 +4,20 @@ import { NextResponse, type NextRequest } from 'next/server'
 const PROTECTED = ['/map', '/User', '/admin']
 
 export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  const pathname = request.nextUrl.pathname
+  const isProtected = PROTECTED.some(p => pathname === p || pathname.startsWith(p + '/'))
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-pathname', pathname)
+
+  let supabaseResponse = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
+
+  if (!isProtected) {
+    return supabaseResponse
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +31,11 @@ export async function proxy(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
-          supabaseResponse = NextResponse.next({ request })
+          supabaseResponse = NextResponse.next({
+            request: {
+              headers: requestHeaders,
+            },
+          })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -28,13 +45,6 @@ export async function proxy(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-
-  const pathname = request.nextUrl.pathname
-  const isProtected = PROTECTED.some(p => pathname === p || pathname.startsWith(p + '/'))
-
-  if (!isProtected) {
-    return supabaseResponse
-  }
 
   if (!user) {
     return NextResponse.redirect(new URL('/login', request.nextUrl))
