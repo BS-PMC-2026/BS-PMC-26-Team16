@@ -1,10 +1,10 @@
 'use client'
 
 import { useActionState, useState } from 'react'
-import { upsertChargingStation } from './actions'
+import { requestChargingStation } from './actions'
 import { initialChargingStationState } from '@/services/chargingStation'
 
-type ChargingStation = {
+type CustomerStationRequest = {
   id: string
   address: string
   lat: number
@@ -12,18 +12,26 @@ type ChargingStation = {
   station_type: string
   opening_time: string | null
   closing_time: string | null
+  is_approve?: boolean | null
 }
 
-export default function ChargingStationForm({ existingStation }: { existingStation: ChargingStation | null }) {
-  const [state, formAction, pending] = useActionState(upsertChargingStation, initialChargingStationState)
-  const [address, setAddress] = useState(existingStation?.address ?? '')
-  const [lat, setLat] = useState(existingStation?.lat?.toString() ?? '')
-  const [lng, setLng] = useState(existingStation?.lng?.toString() ?? '')
-  const [stationType, setStationType] = useState(
-    existingStation?.station_type === 'FAST' ? 'FAST' : 'SLOW'
+export default function CustomerStationRequestForm({
+  existingRequest,
+}: {
+  existingRequest: CustomerStationRequest | null
+}) {
+  const [state, formAction, pending] = useActionState(
+    requestChargingStation,
+    initialChargingStationState
   )
-  const [openingTime, setOpeningTime] = useState(existingStation?.opening_time ?? '')
-  const [closingTime, setClosingTime] = useState(existingStation?.closing_time ?? '')
+  const [address, setAddress] = useState(existingRequest?.address ?? '')
+  const [lat, setLat] = useState(existingRequest?.lat?.toString() ?? '')
+  const [lng, setLng] = useState(existingRequest?.lng?.toString() ?? '')
+  const [stationType, setStationType] = useState(
+    existingRequest?.station_type === 'FAST' ? 'FAST' : 'SLOW'
+  )
+  const [openingTime, setOpeningTime] = useState(existingRequest?.opening_time ?? '')
+  const [closingTime, setClosingTime] = useState(existingRequest?.closing_time ?? '')
   const [geocoding, setGeocoding] = useState(false)
   const [geoError, setGeoError] = useState('')
 
@@ -65,13 +73,18 @@ export default function ChargingStationForm({ existingStation }: { existingStati
   return (
     <section className="mt-8 rounded-[2rem] border border-cyan-500/20 bg-slate-950/70 p-6 shadow-2xl shadow-cyan-950/20 backdrop-blur">
       <div className="mb-5">
-        <h2 className="text-xl font-semibold text-white">My Charging Station</h2>
+        <h2 className="text-xl font-semibold text-white">Request a Charging Station</h2>
         <p className="mt-1 text-sm text-gray-400">
-          {existingStation
-            ? 'Your station is listed on the map. Update its details below.'
-            : 'Register your home charging station so customers can find it on the map.'}
+          Send your home charger details for admin approval. Once approved,
+          your role will become Service Provider and the station will appear on the map.
         </p>
       </div>
+
+      {existingRequest && existingRequest.is_approve !== true && (
+        <div className="mb-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          You already have a pending station request. You can update it below.
+        </div>
+      )}
 
       <form action={formAction} className="space-y-5">
         {state.message && (
@@ -81,12 +94,12 @@ export default function ChargingStationForm({ existingStation }: { existingStati
         )}
 
         <div>
-          <label htmlFor="stationAddress" className="mb-2 block text-sm font-medium text-gray-200">
+          <label htmlFor="customerStationAddress" className="mb-2 block text-sm font-medium text-gray-200">
             Address
           </label>
           <div className="flex gap-2">
             <input
-              id="stationAddress"
+              id="customerStationAddress"
               name="address"
               type="text"
               value={address}
@@ -102,7 +115,7 @@ export default function ChargingStationForm({ existingStation }: { existingStati
               disabled={geocoding || pending || !address.trim()}
               className="rounded-2xl border border-cyan-500/30 bg-cyan-900/40 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-800/60 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {geocoding ? 'Locating…' : 'Locate →'}
+              {geocoding ? 'Locating...' : 'Locate'}
             </button>
           </div>
           {state.errors.address && (
@@ -110,35 +123,30 @@ export default function ChargingStationForm({ existingStation }: { existingStati
           )}
         </div>
 
-        <div>
-          <label htmlFor="stationType" className="mb-2 block text-sm font-medium text-gray-200">
-            Station Type
-          </label>
-          <select
-            id="stationType"
-            name="station_type"
-            value={stationType}
-            onChange={(e) => setStationType(e.target.value)}
-            disabled={pending}
-            className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
-          >
-            <option value="SLOW">Slow Charging</option>
-            <option value="FAST">Fast Charging</option>
-          </select>
-          {state.errors.station_type && (
-            <p className="mt-1 text-sm text-red-300">{state.errors.station_type[0]}</p>
-          )}
-        </div>
+        <div className="grid gap-5 md:grid-cols-2">
+          <div>
+            <label htmlFor="customerStationType" className="mb-2 block text-sm font-medium text-gray-200">
+              Station Type
+            </label>
+            <select
+              id="customerStationType"
+              name="station_type"
+              value={stationType}
+              onChange={(e) => setStationType(e.target.value)}
+              disabled={pending}
+              className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+            >
+              <option value="SLOW">Slow Charging</option>
+              <option value="FAST">Fast Charging</option>
+            </select>
+          </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-medium text-gray-200">
-            Opening hours <span className="text-gray-400">(optional — if not set, station is always open)</span>
-          </label>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="openingTime" className="mb-1 block text-xs text-gray-400">Opens at</label>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-200">
+              Opening hours
+            </label>
+            <div className="grid grid-cols-2 gap-3">
               <input
-                id="openingTime"
                 name="opening_time"
                 type="time"
                 value={openingTime}
@@ -146,14 +154,7 @@ export default function ChargingStationForm({ existingStation }: { existingStati
                 disabled={pending}
                 className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
               />
-              {state.errors.opening_time && (
-                <p className="mt-1 text-sm text-red-300">{state.errors.opening_time[0]}</p>
-              )}
-            </div>
-            <div>
-              <label htmlFor="closingTime" className="mb-1 block text-xs text-gray-400">Closes at</label>
               <input
-                id="closingTime"
                 name="closing_time"
                 type="time"
                 value={closingTime}
@@ -161,58 +162,45 @@ export default function ChargingStationForm({ existingStation }: { existingStati
                 disabled={pending}
                 className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
               />
-              {state.errors.closing_time && (
-                <p className="mt-1 text-sm text-red-300">{state.errors.closing_time[0]}</p>
-              )}
             </div>
           </div>
-          {(openingTime || closingTime) && (
-            <button
-              type="button"
-              onClick={() => { setOpeningTime(''); setClosingTime('') }}
-              className="mt-2 text-xs text-gray-400 hover:text-red-300 transition"
-            >
-              ✕ Clear hours (always open)
-            </button>
-          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-5 md:grid-cols-2">
           <div>
-            <label htmlFor="stationLat" className="mb-2 block text-sm font-medium text-gray-200">
+            <label htmlFor="customerStationLat" className="mb-2 block text-sm font-medium text-gray-200">
               Latitude
             </label>
             <input
-              id="stationLat"
+              id="customerStationLat"
               name="lat"
               type="number"
               step="any"
               value={lat}
               onChange={(e) => setLat(e.target.value)}
-              placeholder="31.78"
               required
               disabled={pending}
-              className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400 placeholder:text-gray-500"
+              className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
             />
             {state.errors.lat && (
               <p className="mt-1 text-sm text-red-300">{state.errors.lat[0]}</p>
             )}
           </div>
+
           <div>
-            <label htmlFor="stationLng" className="mb-2 block text-sm font-medium text-gray-200">
+            <label htmlFor="customerStationLng" className="mb-2 block text-sm font-medium text-gray-200">
               Longitude
             </label>
             <input
-              id="stationLng"
+              id="customerStationLng"
               name="lng"
               type="number"
               step="any"
               value={lng}
               onChange={(e) => setLng(e.target.value)}
-              placeholder="35.21"
               required
               disabled={pending}
-              className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400 placeholder:text-gray-500"
+              className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
             />
             {state.errors.lng && (
               <p className="mt-1 text-sm text-red-300">{state.errors.lng[0]}</p>
@@ -229,14 +217,14 @@ export default function ChargingStationForm({ existingStation }: { existingStati
             disabled={pending}
             className="text-sm text-cyan-300 transition hover:text-cyan-200 disabled:opacity-50"
           >
-            📍 Use my current location
+            Use my current location
           </button>
           <button
             type="submit"
             disabled={pending}
             className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {pending ? 'Saving…' : existingStation ? 'Update station' : 'Register station'}
+            {pending ? 'Sending...' : existingRequest ? 'Update request' : 'Request station'}
           </button>
         </div>
       </form>

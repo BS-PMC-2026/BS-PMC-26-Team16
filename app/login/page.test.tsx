@@ -1,7 +1,7 @@
 "use client";
 
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import LoginPage from "./page";
 
 const pushMock = vi.fn();
@@ -44,7 +44,19 @@ describe("LoginPage", () => {
     createClientMock.mockReturnValue({
       auth: {
         signInWithPassword: signInWithPasswordMock,
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-1" } },
+        }),
       },
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: { is_approved: true, user_type: "customer" },
+            }),
+          }),
+        }),
+      }),
     });
   });
 

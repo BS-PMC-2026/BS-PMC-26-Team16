@@ -10,6 +10,15 @@ vi.mock("../../services/registerUser", () => ({
   registerUser: (...args: unknown[]) => registerUserMock(...args),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    refresh: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+  }),
+}));
+
 async function fillStepOne() {
   fireEvent.change(screen.getByPlaceholderText("Enter your first name"), {
     target: { value: "Ada" },
