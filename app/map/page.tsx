@@ -31,6 +31,7 @@ export default async function MapPage() {
 
   let providerStations: ProviderStation[] = []
   let userName = ''
+  let favoriteIds: string[] = []
 
   if (user) {
     const { data: stations } = await supabase
@@ -54,11 +55,13 @@ export default async function MapPage() {
 
       await cancelExpiredStationReservations(supabase, stationIds)
 
-      const [{ data: profiles }, { data: activeVisits }, { data: ratingsData }] = await Promise.all([
+      const [{ data: profiles }, { data: activeVisits }, { data: ratingsData }, { data: favData }] = await Promise.all([
         supabase.from('profiles').select('id, first_name, last_name, phone').in('id', userIds),
         supabase.from('station_visits').select('station_id').in('status', ['on_the_way', 'arrived']).in('station_id', stationIds),
         supabase.from('ratings').select('station_id, score, comment, created_at').in('station_id', stationIds).order('created_at', { ascending: false }),
+        supabase.from('user_favorites').select('station_id').eq('user_id', user.id),
       ])
+      favoriteIds = (favData ?? []).map((f: { station_id: string }) => f.station_id)
 
       const profileMap = Object.fromEntries(
         (profiles ?? []).map((p) => [
@@ -112,7 +115,7 @@ export default async function MapPage() {
   return (
     <main className="flex-1 overflow-hidden flex flex-col bg-gray-950 p-3">
       {user ? (
-        <MapClient providerStations={providerStations} userName={userName} />
+        <MapClient providerStations={providerStations} userName={userName} initialFavoriteIds={favoriteIds} />
       ) : (
         <div className="flex-1 rounded-2xl border border-gray-700 bg-gray-800 flex flex-col items-center justify-center gap-4">
           <span className="text-7xl select-none">🔒</span>

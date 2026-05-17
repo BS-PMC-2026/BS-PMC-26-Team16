@@ -1,0 +1,39 @@
+name: CI - Urban EV
+
+on:
+  push:
+    branches: [main, Hackaton_2026]
+  pull_request:
+    branches: [main, Hackaton_2026]
+
+jobs:
+  ci:
+    name: Lint, Type Check & Tests
+    runs-on: ubuntu-latest
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test

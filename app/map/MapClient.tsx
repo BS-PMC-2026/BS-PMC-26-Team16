@@ -7,6 +7,7 @@ import type { ProviderStation } from './page'
 
 type PublicStation = {
   type: 'public'
+  key: string
   name: string
   address: string
   operator: string
@@ -25,17 +26,29 @@ type SelectedStation =
 export default function MapClient({
   providerStations,
   userName,
+  initialFavoriteIds = [],
 }: {
   providerStations: ProviderStation[]
   userName: string
+  initialFavoriteIds?: string[]
 }) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<google.maps.Map | null>(null)
-  const providerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([])
+  const providerMarkersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; stationId: string }[]>([])
+  const publicMarkersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; key: string }[]>([])
   const activeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null)
   const [selected, setSelected] = useState<SelectedStation | null>(null)
   const [search, setSearch] = useState('')
   const [searching, setSearching] = useState(false)
+  const [favorites, setFavorites] = useState<Set<string>>(new Set(initialFavoriteIds))
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
+  const [togglingFav, setTogglingFav] = useState(false)
+
+  // Refs that are always current — safe to read inside async initMap closure
+  const showFavoritesOnlyRef = useRef(false)
+  const favoritesRef = useRef(new Set<string>(initialFavoriteIds))
+  useEffect(() => { showFavoritesOnlyRef.current = showFavoritesOnly }, [showFavoritesOnly])
+  useEffect(() => { favoritesRef.current = favorites }, [favorites])
 
   // Global handler for "on my way" button
   useEffect(() => {
@@ -53,7 +66,7 @@ export default function MapClient({
         const data = await res.json()
         if (res.ok) {
           btn.textContent = '✅ On my way!'
-          btn.style.background = '#16a34a'
+          btn.style.background = '#0891b2'
           window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank')
         } else {
           btn.textContent = data.error ?? 'Error'
@@ -84,11 +97,37 @@ export default function MapClient({
     }
   }
 
+  async function toggleFavorite(stationId: string) {
+    setTogglingFav(true)
+    const isFav = favorites.has(stationId)
+    setFavorites(prev => {
+      const next = new Set(prev)
+      isFav ? next.delete(stationId) : next.add(stationId)
+      return next
+    })
+    try {
+      await fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stationId }),
+      })
+    } catch {
+      // revert on error
+      setFavorites(prev => {
+        const next = new Set(prev)
+        isFav ? next.add(stationId) : next.delete(stationId)
+        return next
+      })
+    } finally {
+      setTogglingFav(false)
+    }
+  }
+
   const syncProviderMarkers = useCallback(async () => {
     const map = mapInstanceRef.current
     if (!map || !window.google) return
 
-    for (const m of providerMarkersRef.current) m.map = null
+    for (const { marker: m } of providerMarkersRef.current) m.map = null
     providerMarkersRef.current = []
 
     const { AdvancedMarkerElement } = await google.maps.importLibrary('marker') as google.maps.MarkerLibrary
@@ -110,7 +149,7 @@ export default function MapClient({
       } else if (isLocked) {
         pin.innerHTML = `${pinSvg('#ef4444', '#dc2626', 1)}<span style="position:absolute;top:-6px;right:-6px;font-size:17px;">🔒</span>`
       } else {
-        pin.innerHTML = pinSvg('#22c55e', '#15803d', 1)
+        pin.innerHTML = pinSvg('#06b6d4', '#0891b2', 1)
       }
 
       const marker = new AdvancedMarkerElement({
@@ -128,7 +167,7 @@ export default function MapClient({
             ? `✅ Open · till ${station.closingTime.slice(0, 5)}`
             : '✅ Available'
 
-      const statusColor = !isOpen ? '#6b7280' : isLocked ? '#7c3aed' : '#16a34a'
+      const statusColor = !isOpen ? '#6b7280' : isLocked ? '#7c3aed' : '#0891b2'
       const typeLabel = station.stationType === 'FAST' ? 'Fast ⚡' : 'Slow ⚡'
 
       const tooltip = new google.maps.InfoWindow({
@@ -153,7 +192,7 @@ export default function MapClient({
         setSelected({ type: 'private', station })
       })
 
-      providerMarkersRef.current.push(marker)
+      providerMarkersRef.current.push({ marker, stationId: station.id })
     }
   }, [providerStations])
 
@@ -228,7 +267,9 @@ export default function MapClient({
           <text x="14" y="18" text-anchor="middle" font-size="13" fill="white">⚡</text>
         </svg>
       `
+      const stationKey = `pub_${lat.toFixed(6)}_${lng.toFixed(6)}`
       const marker = new AdvancedMarkerElement({ position: { lat, lng }, map, title: p.name, content: geoPin })
+      publicMarkersRef.current.push({ marker, key: stationKey })
 
       const pubTooltip = new google.maps.InfoWindow({
         content: `<div style="font-family:system-ui,sans-serif;background:#111827;border-radius:10px;overflow:hidden;min-width:220px;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
@@ -239,7 +280,7 @@ export default function MapClient({
             <div style="display:flex;gap:6px;">
               <span style="background:#1f2937;color:#d1d5db;font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;">Public</span>
               <span style="background:#1f2937;color:#f59e0b;font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;">Fast: ${p.cnt_fast}</span>
-              <span style="background:#1f2937;color:#22c55e;font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;">Slow: ${p.cnt_slow}</span>
+              <span style="background:#1f2937;color:#22d3ee;font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;">Slow: ${p.cnt_slow}</span>
             </div>
           </div>
         </div>`,
@@ -252,6 +293,7 @@ export default function MapClient({
         activeInfoWindowRef.current = pubTooltip
         setSelected({
           type: 'public',
+          key: stationKey,
           name: p.name,
           address: p.Address,
           operator: p.op,
@@ -264,6 +306,14 @@ export default function MapClient({
       })
     }
 
+    // Apply the current favorites filter immediately after creating all public markers.
+    // This is needed because the filter useEffect may have run before initMap completed.
+    if (showFavoritesOnlyRef.current) {
+      for (const { marker: m, key } of publicMarkersRef.current) {
+        if (!favoritesRef.current.has(key)) m.map = null
+      }
+    }
+
     await syncProviderMarkers()
   }
 
@@ -274,6 +324,17 @@ export default function MapClient({
 
   useEffect(() => { syncProviderMarkers() }, [syncProviderMarkers])
 
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map) return
+    for (const { marker, stationId } of providerMarkersRef.current) {
+      marker.map = (!showFavoritesOnly || favorites.has(stationId)) ? map : null
+    }
+    for (const { marker, key } of publicMarkersRef.current) {
+      marker.map = (!showFavoritesOnly || favorites.has(key)) ? map : null
+    }
+  }, [showFavoritesOnly, favorites])
+
   // Side panel content
   const sidePanel = selected && (
     <div className="hidden-scrollbar absolute left-0 top-0 bottom-0 z-10 w-[300px] bg-[#111827] shadow-2xl flex flex-col overflow-hidden">
@@ -281,14 +342,14 @@ export default function MapClient({
       <div className="relative h-44 shrink-0 flex items-center justify-center"
         style={{
           background: selected.type === 'private'
-            ? 'linear-gradient(135deg,#064e3b,#065f46)'
-            : 'linear-gradient(135deg,#1e3a8a,#1d4ed8)',
+            ? 'linear-gradient(135deg,#071f3a,#0f2d4e)'
+            : 'linear-gradient(135deg,#071f3a,#0f2d4e)',
         }}>
         <span style={{ fontSize: 72, opacity: 0.4 }}>
           {selected.type === 'private' ? '🏠' : '⚡'}
         </span>
         {selected.type === 'private' && selected.station.averageRating != null && (
-          <div className="absolute top-3 left-3 bg-black/60 rounded-full px-3 py-1 flex items-center gap-1">
+          <div className="absolute bottom-3 left-3 bg-black/60 rounded-full px-3 py-1 flex items-center gap-1">
             <span className="text-yellow-400 text-sm">★</span>
             <span className="text-white text-sm font-bold">{selected.station.averageRating.toFixed(1)}</span>
             <span className="text-gray-400 text-xs">({selected.station.ratingCount})</span>
@@ -298,6 +359,21 @@ export default function MapClient({
           onClick={() => setSelected(null)}
           className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition text-lg"
         >✕</button>
+        {(() => {
+          const favKey = selected.type === 'private' ? selected.station.id : selected.key
+          const isFav = favorites.has(favKey)
+          return (
+            <button
+              onClick={() => toggleFavorite(favKey)}
+              disabled={togglingFav}
+              title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+              className="absolute top-3 left-3 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition text-lg disabled:opacity-50"
+              style={{ color: isFav ? '#f87171' : '#ffffff' }}
+            >
+              {isFav ? '♥' : '♡'}
+            </button>
+          )
+        })()}
       </div>
 
       <div
@@ -311,7 +387,7 @@ export default function MapClient({
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                   !selected.station.isOpen ? 'bg-gray-700 text-gray-300'
                   : selected.station.isLocked ? 'bg-purple-900 text-purple-200'
-                  : 'bg-green-900 text-green-300'
+                  : 'bg-cyan-900 text-cyan-300'
                 }`}>
                   {!selected.station.isOpen ? '🌙 Closed' : selected.station.isLocked ? '🔒 Occupied' : '✅ Available'}
                 </span>
@@ -330,7 +406,7 @@ export default function MapClient({
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-gray-800 rounded-xl p-3">
                 <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Type</p>
-                <p className={`font-bold text-sm ${selected.station.stationType === 'FAST' ? 'text-amber-400' : 'text-green-400'}`}>
+                <p className={`font-bold text-sm ${selected.station.stationType === 'FAST' ? 'text-amber-400' : 'text-cyan-400'}`}>
                   ⚡ {selected.station.stationType === 'FAST' ? 'Fast' : 'Slow'}
                 </p>
               </div>
@@ -410,8 +486,8 @@ export default function MapClient({
                   <p className="text-amber-400 font-bold text-xl">{selected.fast}</p>
                 </div>
                 <div className="bg-gray-800 rounded-xl p-3 text-center">
-                  <p className="text-green-400 text-xs">Slow</p>
-                  <p className="text-green-400 font-bold text-xl">{selected.slow}</p>
+                  <p className="text-cyan-400 text-xs">Slow</p>
+                  <p className="text-cyan-400 font-bold text-xl">{selected.slow}</p>
                 </div>
               </div>
             </div>
@@ -467,7 +543,23 @@ export default function MapClient({
             <p className="text-gray-400 text-xs">EV Driver</p>
           </div>
 
-          <form onSubmit={handleSearch} className="flex-1 flex gap-2 max-w-sm ml-auto">
+          <button
+            onClick={() => setShowFavoritesOnly(v => !v)}
+            className={`ml-auto shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition border ${
+              showFavoritesOnly
+                ? 'bg-cyan-600 border-cyan-500 text-white'
+                : 'bg-gray-800 border-gray-600 text-gray-300 hover:border-cyan-600 hover:text-white'
+            }`}
+          >
+            {showFavoritesOnly ? '♥' : '♡'} My Favorites
+            {favorites.size > 0 && (
+              <span className="bg-cyan-500/30 text-cyan-300 text-xs px-1.5 py-0.5 rounded-full">
+                {favorites.size}
+              </span>
+            )}
+          </button>
+
+          <form onSubmit={handleSearch} className="flex gap-2 max-w-sm">
             <input
               type="text"
               value={search}
