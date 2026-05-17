@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import MapClient from './MapClient'
 import { isStationOpen } from '@/services/chargingStation'
+import { cancelExpiredStationReservations } from '@/services/stationVisits'
 
 export type ProviderStation = {
   id: string
@@ -17,6 +18,11 @@ export type ProviderStation = {
   isLocked: boolean
   averageRating: number | null
   ratingCount: number
+  reviews: {
+    score: number
+    comment: string
+    createdAt: string | null
+  }[]
 }
 
 export default async function MapPage() {
@@ -45,10 +51,12 @@ export default async function MapPage() {
       const stationIds = stations.map((s) => s.id)
       const userIds = stations.map((s) => s.user_id)
 
+      await cancelExpiredStationReservations(supabase, stationIds)
+
       const [{ data: profiles }, { data: activeVisits }, { data: ratingsData }] = await Promise.all([
         supabase.from('profiles').select('id, first_name, last_name, phone').in('id', userIds),
         supabase.from('station_visits').select('station_id').in('status', ['on_the_way', 'arrived']).in('station_id', stationIds),
-        supabase.from('ratings').select('station_id, score').in('station_id', stationIds),
+        supabase.from('ratings').select('station_id, score, comment, created_at').in('station_id', stationIds).order('created_at', { ascending: false }),
       ])
 
       const profileMap = Object.fromEntries(
@@ -61,9 +69,21 @@ export default async function MapPage() {
       const lockedStationIds = new Set((activeVisits ?? []).map((v) => v.station_id))
 
       const ratingMap = new Map<string, { total: number; count: number }>()
+      const reviewsMap = new Map<string, ProviderStation['reviews']>()
       for (const r of ratingsData ?? []) {
         const cur = ratingMap.get(r.station_id) ?? { total: 0, count: 0 }
         ratingMap.set(r.station_id, { total: cur.total + r.score, count: cur.count + 1 })
+
+        const comment = r.comment?.trim()
+        if (comment) {
+          const reviews = reviewsMap.get(r.station_id) ?? []
+          reviews.push({
+            score: r.score,
+            comment,
+            createdAt: r.created_at ?? null,
+          })
+          reviewsMap.set(r.station_id, reviews)
+        }
       }
 
       providerStations = stations.map((s) => {
@@ -82,6 +102,7 @@ export default async function MapPage() {
           isLocked: lockedStationIds.has(s.id),
           averageRating: rating ? rating.total / rating.count : null,
           ratingCount: rating?.count ?? 0,
+          reviews: reviewsMap.get(s.id) ?? [],
         }
       })
     }

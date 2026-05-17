@@ -22,6 +22,7 @@ import {
   validateChargingStation,
   type ChargingStationActionState,
 } from '@/services/chargingStation'
+import { REVIEW_WORD_LIMIT, getReviewWordCount, validateReviewScore } from '@/services/reviews'
 
 export async function updateAdminProfile(
   _previousState: AdminProfileActionState,
@@ -386,6 +387,17 @@ export async function submitRating(
   score: number,
   comment: string
 ): Promise<{ error?: string }> {
+  const trimmedComment = comment.trim()
+  const reviewWordCount = getReviewWordCount(trimmedComment)
+
+  if (!validateReviewScore(score)) {
+    return { error: 'Please select a rating from 1 to 5.' }
+  }
+
+  if (reviewWordCount > REVIEW_WORD_LIMIT) {
+    return { error: `Written reviews can be up to ${REVIEW_WORD_LIMIT} words.` }
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -413,7 +425,7 @@ export async function submitRating(
     provider_id: station.user_id,
     station_id: visit.station_id,
     score,
-    comment: comment.trim() || null,
+    comment: trimmedComment || null,
   })
 
   if (error) return { error: error.message }

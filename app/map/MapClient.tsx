@@ -276,7 +276,7 @@ export default function MapClient({
 
   // Side panel content
   const sidePanel = selected && (
-    <div className="absolute left-0 top-0 bottom-0 z-10 w-[300px] bg-[#111827] shadow-2xl flex flex-col overflow-hidden">
+    <div className="hidden-scrollbar absolute left-0 top-0 bottom-0 z-10 w-[300px] bg-[#111827] shadow-2xl flex flex-col overflow-hidden">
       {/* Image / hero */}
       <div className="relative h-44 shrink-0 flex items-center justify-center"
         style={{
@@ -300,7 +300,10 @@ export default function MapClient({
         >✕</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div
+        className="hidden-scrollbar flex-1 overflow-y-auto p-4 space-y-4"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
         {selected.type === 'private' ? (
           <>
             <div>
@@ -348,6 +351,40 @@ export default function MapClient({
                 <span className="text-cyan-400 font-medium text-sm">{selected.station.phone}</span>
               </a>
             )}
+
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-gray-400 text-xs uppercase tracking-wide">Written Reviews</p>
+                <span className="text-xs font-semibold text-gray-500">
+                  {selected.station.reviews.length}/{selected.station.ratingCount}
+                </span>
+              </div>
+
+              {selected.station.reviews.length > 0 ? (
+                <div className="space-y-2">
+                  {selected.station.reviews.map((review, index) => (
+                    <div key={`${review.createdAt ?? 'review'}-${index}`} className="rounded-xl bg-gray-800 p-3">
+                      <div className="mb-1 flex items-center justify-between gap-3">
+                        <span className="text-yellow-400 text-sm tracking-tight" aria-label={`${review.score} out of 5 stars`}>
+                          {'★'.repeat(review.score)}
+                          <span className="text-gray-600">{'★'.repeat(5 - review.score)}</span>
+                        </span>
+                        {review.createdAt && (
+                          <span className="text-[11px] text-gray-500">
+                            {new Date(review.createdAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm leading-relaxed text-gray-200">{review.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl bg-gray-800 p-3 text-sm text-gray-400">
+                  No written reviews yet.
+                </div>
+              )}
+            </div>
 
           </>
         ) : (
@@ -397,7 +434,7 @@ export default function MapClient({
                 ;(window as Window & { stationOnMyWay?: (id: string, lat: number, lng: number, btn: HTMLButtonElement) => void })
                   .stationOnMyWay?.(s.id, s.lat, s.lng, btn)
               }}
-              className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-400 text-black font-bold text-sm transition"
+              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition"
             >
               I&apos;m on my way 🚗
             </button>
@@ -408,7 +445,7 @@ export default function MapClient({
               const s = selected as PublicStation
               window.open(`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`, '_blank')
             }}
-            className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-400 text-black font-bold text-sm transition"
+            className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition"
           >
             Take Me There 🚗
           </button>

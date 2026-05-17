@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { cancelExpiredStationReservation } from '@/services/stationVisits'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -26,16 +27,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Station not found.' }, { status: 404 })
   }
 
-  // Block if already locked (someone is on the way)
+  await cancelExpiredStationReservation(supabase, stationId)
+
+  // Block if already locked (someone is on the way or charging)
   const { data: existing } = await supabase
     .from('station_visits')
     .select('id')
     .eq('station_id', stationId)
-    .eq('status', 'on_the_way')
+    .in('status', ['on_the_way', 'arrived'])
     .maybeSingle()
 
   if (existing) {
-    return NextResponse.json({ error: 'Someone is already on the way to this station. Please try again later.' }, { status: 409 })
+    return NextResponse.json({ error: 'This station is currently reserved or in use. Please try again later.' }, { status: 409 })
   }
 
   // Fetch visitor name + phone

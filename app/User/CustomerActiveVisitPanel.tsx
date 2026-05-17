@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { markArrived, completeVisit, cancelVisit, submitRating } from './actions'
+import { REVIEW_WORD_LIMIT, getReviewWordCount, limitReviewWords } from '@/services/reviews'
 
 export type CustomerVisit = {
   id: string
@@ -82,6 +83,7 @@ export default function CustomerActiveVisitPanel({ visit }: { visit: CustomerVis
   const [error, setError] = useState('')
   const [, startTransition] = useTransition()
   const autoCancelledRef = useRef(false)
+  const reviewWordCount = getReviewWordCount(comment)
 
   useEffect(() => {
     if (phase !== 'on_the_way' || !expired || autoCancelledRef.current) return
@@ -90,7 +92,7 @@ export default function CustomerActiveVisitPanel({ visit }: { visit: CustomerVis
       await cancelVisit(visit.id)
       setPhase('done')
     })
-  }, [expired, phase])
+  }, [expired, phase, visit.id])
 
   function handleArrived() {
     setError('')
@@ -121,6 +123,10 @@ export default function CustomerActiveVisitPanel({ visit }: { visit: CustomerVis
 
   function handleRating() {
     if (score === 0) { setError('Please select a rating.'); return }
+    if (reviewWordCount > REVIEW_WORD_LIMIT) {
+      setError(`Written reviews can be up to ${REVIEW_WORD_LIMIT} words.`)
+      return
+    }
     setError('')
     startTransition(async () => {
       const result = await submitRating(visit.id, score, comment)
@@ -149,12 +155,20 @@ export default function CustomerActiveVisitPanel({ visit }: { visit: CustomerVis
             <StarRating value={score} onChange={setScore} />
           </div>
           <div>
-            <label className="block text-sm text-gray-300 mb-1">Comment (optional)</label>
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <label htmlFor="writtenReview" className="block text-sm text-gray-300">
+                Written review (optional)
+              </label>
+              <span className={`text-xs ${reviewWordCount >= REVIEW_WORD_LIMIT ? 'text-cyan-300' : 'text-gray-500'}`}>
+                {reviewWordCount}/{REVIEW_WORD_LIMIT} words
+              </span>
+            </div>
             <textarea
+              id="writtenReview"
               value={comment}
-              onChange={(e) => setComment(e.target.value)}
+              onChange={(e) => setComment(limitReviewWords(e.target.value))}
               rows={3}
-              placeholder="Anything you'd like to share..."
+              placeholder="Share a short review..."
               className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-400 placeholder:text-gray-500 resize-none"
             />
           </div>
