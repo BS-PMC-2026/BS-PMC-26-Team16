@@ -41,6 +41,7 @@ export default function StationMiniMap({ lat, lng, address }: Props) {
     <>
       <div ref={mapRef} className="w-full h-48 rounded-xl overflow-hidden" />
       <Script
+        id="google-maps"
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=marker`}
         onLoad={initMap}
       />

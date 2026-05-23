@@ -163,7 +163,9 @@
 
 .admin-filter-button,
 .admin-clear-button,
-.admin-approve-button {
+.admin-approve-button,
+.admin-reset-button,
+.admin-delete-button {
   border: none;
   border-radius: 999px;
   padding: 13px 20px;
@@ -184,6 +186,40 @@
 .admin-filter-button:hover,
 .admin-approve-button:hover {
   background: #67e8f9;
+}
+
+.admin-reset-button {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.admin-reset-button:hover {
+  background: rgba(251, 191, 36, 0.25);
+}
+
+.admin-delete-button {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.admin-delete-button:hover {
+  background: rgba(239, 68, 68, 0.22);
+}
+
+.admin-approve-button:disabled,
+.admin-reset-button:disabled,
+.admin-delete-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-action-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .admin-clear-button {
@@ -347,6 +383,10 @@
   text-align: right;
 }
 
+.admin-action-error {
+  color: #f87171;
+}
+
 @media (max-width: 768px) {
   .admin-approvals-card {
     padding: 22px;
@@ -369,8 +409,10 @@
   }
 
   .admin-user-actions,
-  .admin-approve-wrapper {
+  .admin-approve-wrapper,
+  .admin-action-buttons {
     align-items: stretch;
+    flex-direction: column;
   }
 
   .admin-filter-actions {

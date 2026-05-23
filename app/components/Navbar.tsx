@@ -69,10 +69,10 @@ export default async function Navbar() {
 
             {isAdmin && (
               <Link
-                href="/admin/approvals"
+                href="/admin/charging-points"
                 className="text-cyan-400 hover:text-cyan-300 text-sm font-semibold"
               >
-                Approvals
+                Charging Points
               </Link>
             )}
 

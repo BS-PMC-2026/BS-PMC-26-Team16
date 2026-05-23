@@ -248,7 +248,7 @@ export default async function AdminApprovalsPage({
                 </div>
 
                 <div className="admin-user-actions">
-                  <ApproveButton userId={user.id} />
+                  <ApproveButton userId={user.id} email={user.email ?? ''} />
                 </div>
               </div>
             ))}

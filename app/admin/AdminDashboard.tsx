@@ -186,9 +186,12 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
   const [allUsers, setAllUsers] = useState<{ id: string; first_name: string | null; last_name: string | null; email: string; phone: string | null; user_type: string; is_approved: boolean }[]>([])
   const [userSearch, setUserSearch] = useState('')
   const [usersLoading, setUsersLoading] = useState(false)
+  const [userMgmtLoading, setUserMgmtLoading] = useState<string | null>(null)
+  const [userMgmtFeedback, setUserMgmtFeedback] = useState<{ msg: string; ok: boolean } | null>(null)
 
   async function openUserManagement() {
     setShowUserMgmt(true)
+    setUserMgmtFeedback(null)
     if (allUsers.length > 0) return
     setUsersLoading(true)
     const supabase = createClient()
@@ -199,6 +202,34 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
       .order('first_name', { ascending: true })
     setAllUsers(data ?? [])
     setUsersLoading(false)
+  }
+
+  async function handleUserTableAction(userId: string, email: string, action: 'delete' | 'reset') {
+    if (action === 'delete') {
+      if (!confirm(`Delete user ${email}? This permanently removes their account and cannot be undone.`)) return
+    }
+    setUserMgmtLoading(`${userId}:${action}`)
+    setUserMgmtFeedback(null)
+    try {
+      const path = action === 'delete' ? '/admin/delete-user' : '/admin/reset-password'
+      const body = action === 'delete' ? { userId } : { userId, email }
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const result = await res.json()
+      if (!res.ok) {
+        setUserMgmtFeedback({ msg: result.error || 'Action failed.', ok: false })
+      } else {
+        setUserMgmtFeedback({ msg: action === 'delete' ? 'User deleted.' : 'Password reset email sent.', ok: true })
+        if (action === 'delete') setAllUsers(prev => prev.filter(u => u.id !== userId))
+      }
+    } catch {
+      setUserMgmtFeedback({ msg: 'Something went wrong.', ok: false })
+    } finally {
+      setUserMgmtLoading(null)
+    }
   }
 
   const filteredUsers = allUsers.filter(u => {
@@ -217,12 +248,12 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
           onClick={() => setShowUserMgmt(false)}
         >
           <div
-            className="w-180 max-h-[80vh] rounded-2xl bg-[#111318] border border-white/6 p-6 shadow-2xl flex flex-col"
+            className="w-225 max-w-[95vw] max-h-[80vh] rounded-2xl bg-[#111318] border border-white/6 p-6 shadow-2xl flex flex-col"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm font-semibold text-white">User Management</p>
-              <button onClick={() => setShowUserMgmt(false)} className="text-gray-500 hover:text-white text-lg leading-none transition">✕</button>
+              <button onClick={() => { setShowUserMgmt(false); setUserMgmtFeedback(null) }} className="text-gray-500 hover:text-white text-lg leading-none transition">✕</button>
             </div>
             <input
               type="text"
@@ -244,6 +275,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                       <th className="text-left pb-2 font-medium">Email</th>
                       <th className="text-left pb-2 font-medium">Type</th>
                       <th className="text-left pb-2 font-medium">Status</th>
+                      <th className="text-left pb-2 font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -252,7 +284,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                         <td className="py-2.5 pr-4 text-gray-300 font-medium">{`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || '—'}</td>
                         <td className="py-2.5 pr-4 text-gray-400">{u.email}</td>
                         <td className="py-2.5 pr-4 text-gray-400 capitalize">{u.user_type}</td>
-                        <td className="py-2.5">
+                        <td className="py-2.5 pr-4">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                             u.is_approved
                               ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
@@ -261,13 +293,36 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                             {u.is_approved ? 'Active' : 'Pending'}
                           </span>
                         </td>
+                        <td className="py-2.5">
+                          <div className="flex gap-1.5">
+                            <button
+                              disabled={userMgmtLoading !== null}
+                              onClick={() => handleUserTableAction(u.id, u.email, 'reset')}
+                              className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {userMgmtLoading === `${u.id}:reset` ? '…' : 'Reset PW'}
+                            </button>
+                            <button
+                              disabled={userMgmtLoading !== null}
+                              onClick={() => handleUserTableAction(u.id, u.email, 'delete')}
+                              className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {userMgmtLoading === `${u.id}:delete` ? '…' : 'Delete'}
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               )}
             </div>
-            <p className="text-[10px] text-gray-700 mt-3 text-right">{filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}</p>
+            {userMgmtFeedback && (
+              <p className={`text-xs mt-3 py-1.5 px-3 rounded-lg ${userMgmtFeedback.ok ? 'text-emerald-400 bg-emerald-400/10' : 'text-red-400 bg-red-400/10'}`}>
+                {userMgmtFeedback.msg}
+              </p>
+            )}
+            <p className="text-[10px] text-gray-700 mt-2 text-right">{filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
       )}
