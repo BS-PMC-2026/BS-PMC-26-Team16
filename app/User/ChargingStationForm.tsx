@@ -1,7 +1,7 @@
 'use client'
 
-import { useActionState, useState } from 'react'
-import { upsertChargingStation } from './actions'
+import { useActionState, useState, useTransition } from 'react'
+import { upsertChargingStation, deleteChargingStation } from './actions'
 import { initialChargingStationState } from '@/services/chargingStation'
 
 type ChargingStation = {
@@ -26,6 +26,9 @@ export default function ChargingStationForm({ existingStation }: { existingStati
   const [closingTime, setClosingTime] = useState(existingStation?.closing_time ?? '')
   const [geocoding, setGeocoding] = useState(false)
   const [geoError, setGeoError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [deleting, startDelete] = useTransition()
 
   async function geocodeAddress() {
     if (!address.trim()) return
@@ -58,20 +61,91 @@ export default function ChargingStationForm({ existingStation }: { existingStati
     )
   }
 
+  function handleDeleteClick() {
+    setDeleteError('')
+    setConfirmDelete(true)
+  }
+
+  function handleDeleteCancel() {
+    setConfirmDelete(false)
+    setDeleteError('')
+  }
+
+  function handleDeleteConfirm() {
+    startDelete(async () => {
+      const result = await deleteChargingStation()
+      if (result.error) {
+        setDeleteError(result.error)
+      }
+      // Always close the confirm dialog — on success the page will
+      // re-render with existingStation=null and the form resets itself.
+      setConfirmDelete(false)
+    })
+  }
+
   const messageTone = state.success
     ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
     : 'border-red-500/40 bg-red-500/10 text-red-200'
 
   return (
-    <section className="mt-8 rounded-[2rem] border border-cyan-500/20 bg-slate-950/70 p-6 shadow-2xl shadow-cyan-950/20 backdrop-blur">
-      <div className="mb-5">
-        <h2 className="text-xl font-semibold text-white">My Charging Station</h2>
-        <p className="mt-1 text-sm text-gray-400">
-          {existingStation
-            ? 'Your station is listed on the map. Update its details below.'
-            : 'Register your home charging station so customers can find it on the map.'}
-        </p>
+    <section className="mt-8 rounded-4xl border border-cyan-500/20 bg-slate-950/70 p-6 shadow-2xl shadow-cyan-950/20 backdrop-blur">
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-white">My Charging Station</h2>
+          <p className="mt-1 text-sm text-gray-400">
+            {existingStation
+              ? 'Your station is listed on the map. Update its details below.'
+              : 'Register your home charging station so customers can find it on the map.'}
+          </p>
+        </div>
+        {existingStation && !confirmDelete && (
+          <button
+            type="button"
+            onClick={handleDeleteClick}
+            disabled={pending || deleting}
+            className="shrink-0 rounded-2xl border border-red-500/30 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-300 transition hover:bg-red-900/60 hover:text-red-200 disabled:opacity-50"
+          >
+            🗑 Remove Station
+          </button>
+        )}
       </div>
+
+      {confirmDelete && (
+        <div className="mb-5 rounded-2xl border border-red-500/40 bg-red-950/30 px-5 py-4">
+          {deleting ? (
+            <p className="text-sm font-semibold text-red-300 animate-pulse">⏳ Removing your station…</p>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-red-200">Remove your station?</p>
+              <p className="mt-1 text-xs text-red-300/70">
+                This will permanently delete your charging station from the map and the database. This action cannot be undone.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                  className="rounded-xl bg-red-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
+                >
+                  Yes, remove it
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteCancel}
+                  className="rounded-xl border border-white/10 bg-white/5 px-5 py-2 text-sm font-semibold text-gray-300 transition hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {deleteError && (
+        <div className="mb-5 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {deleteError}
+        </div>
+      )}
 
       <form action={formAction} className="space-y-5">
         {state.message && (

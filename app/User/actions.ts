@@ -106,11 +106,25 @@ export async function upsertChargingStation(
     .eq('user_id', user.id)
     .maybeSingle()
 
-  const stationData = { address, lat, lng, station_type, opening_time, closing_time, is_approve: true }
+  // Preserve approval status: keep existing approved stations approved on update,
+  // but new stations must wait for admin approval.
+  const isApprove = existing
+    ? undefined // don't touch is_approve on updates — admin may have already approved
+    : false
+
+  const stationData = {
+    address,
+    lat,
+    lng,
+    station_type,
+    opening_time,
+    closing_time,
+    ...(isApprove !== undefined ? { is_approve: isApprove } : {}),
+  }
 
   const { error: dbError } = existing
     ? await supabase.from('charging_stations').update(stationData).eq('user_id', user.id)
-    : await supabase.from('charging_stations').insert({ user_id: user.id, ...stationData })
+    : await supabase.from('charging_stations').insert({ user_id: user.id, ...stationData, is_approve: false })
 
   if (dbError) {
     return { ...initialChargingStationState, message: dbError.message }
@@ -121,7 +135,9 @@ export async function upsertChargingStation(
 
   return {
     errors: {},
-    message: existing ? 'Charging station updated successfully.' : 'Charging station registered successfully.',
+    message: existing
+      ? 'Charging station updated successfully.'
+      : 'Charging station registered. An admin will review it soon.',
     success: true,
   }
 }
@@ -353,6 +369,39 @@ async function updateProfileByRole({
             : 'Profile updated successfully.',
     success: true,
   }
+}
+
+export async function deleteChargingStation(): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { error: 'You must be signed in.' }
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('user_type')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || profile.user_type !== 'provider') {
+    return { error: 'Only service providers can remove their charging station.' }
+  }
+
+  const { error: dbError } = await supabase
+    .from('charging_stations')
+    .delete()
+    .eq('user_id', user.id)
+
+  if (dbError) {
+    return { error: dbError.message }
+  }
+
+  refresh()
+  revalidatePath('/map')
+  revalidatePath('/User')
+  return {}
 }
 
 export async function markNotificationRead(notificationId: string): Promise<void> {
