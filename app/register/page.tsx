@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { registerUser } from "../../services/registerUser";
 import { getStrongPasswordErrors } from "../../services/passwordValidation";
+import { createClient } from "../../lib/supabase/client";
 import "./RegisterPage.css";
 
 type FormDataType = {
@@ -24,6 +25,24 @@ type TouchedType = Partial<Record<keyof FormDataType, boolean>>;
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
+
+  // Auth guard: redirect already-logged-in users away from the register page
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_type")
+        .eq("id", user.id)
+        .single();
+      if (profile?.user_type === "admin") {
+        router.replace("/admin");
+      } else {
+        router.replace("/User");
+      }
+    });
+  }, [router]);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(5);
 

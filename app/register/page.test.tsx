@@ -10,6 +10,15 @@ vi.mock("../../services/registerUser", () => ({
   registerUser: (...args: unknown[]) => registerUserMock(...args),
 }));
 
+// Mock supabase client so the auth-guard useEffect resolves to "no user"
+vi.mock("../../lib/supabase/client", () => ({
+  createClient: () => ({
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+    },
+  }),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),

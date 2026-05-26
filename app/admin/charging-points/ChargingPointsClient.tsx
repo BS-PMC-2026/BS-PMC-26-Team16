@@ -643,21 +643,30 @@ function StationDetail({
       <div className="w-52 shrink-0 border-l border-white/6 p-5 flex flex-col gap-3">
         <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Actions</p>
 
-        <button
-          onClick={onEditAddress}
-          className="w-full rounded-xl px-4 py-3 text-sm font-medium flex items-center justify-between bg-white/4 border border-white/[0.07] text-gray-300 hover:bg-white/[0.07] hover:text-white transition"
-        >
-          Edit Address
-          <PencilIcon />
-        </button>
+        {row.source === 'geo' ? (
+          <p className="text-xs text-gray-400 leading-relaxed border border-white/[0.07] rounded-xl px-3 py-3">
+            This is a public station — this information was transferred from the government database{' '}
+            <span className="text-cyan-400 font-medium">Gov.il</span> and is subject to changes only.
+          </p>
+        ) : (
+          <>
+            <button
+              onClick={onEditAddress}
+              className="w-full rounded-xl px-4 py-3 text-sm font-medium flex items-center justify-between bg-white/4 border border-white/[0.07] text-gray-300 hover:bg-white/[0.07] hover:text-white transition"
+            >
+              Edit Address
+              <PencilIcon />
+            </button>
 
-        <button
-          onClick={onEditLocation}
-          className="w-full rounded-xl px-4 py-3 text-sm font-medium flex items-center justify-between bg-white/4 border border-white/[0.07] text-gray-300 hover:bg-white/[0.07] hover:text-white transition"
-        >
-          Edit Location
-          <PinIcon />
-        </button>
+            <button
+              onClick={onEditLocation}
+              className="w-full rounded-xl px-4 py-3 text-sm font-medium flex items-center justify-between bg-white/4 border border-white/[0.07] text-gray-300 hover:bg-white/[0.07] hover:text-white transition"
+            >
+              Edit Location
+              <PinIcon />
+            </button>
+          </>
+        )}
 
         <div className="flex-1" />
 
