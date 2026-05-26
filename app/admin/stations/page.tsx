@@ -3,6 +3,7 @@ import { readFile } from 'fs/promises'
 import path from 'path'
 import { createClient } from '@/lib/supabase/server'
 import DeleteStationButton from './DeleteStationButton'
+import EditStationButton from './EditStationButton'
 
 const GEOJSON_PREVIEW_LIMIT = 100
 
@@ -30,7 +31,7 @@ export default async function AdminStationsPage({ searchParams }: { searchParams
 
   const { data: allProviderStations } = await supabase
     .from('charging_stations')
-    .select('id, address, lat, lng, station_type, user_id')
+    .select('id, address, lat, lng, station_type, opening_time, closing_time, user_id')
     .order('id', { ascending: false })
 
   let ownerMap: Record<string, { name: string; phone: string }> = {}
@@ -183,7 +184,7 @@ export default async function AdminStationsPage({ searchParams }: { searchParams
                     <th className="px-4 py-3 text-left">Address</th>
                     <th className="px-4 py-3 text-left">Type</th>
                     <th className="px-4 py-3 text-left">Coords</th>
-                    <th className="px-4 py-3 text-left">Action</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -205,7 +206,18 @@ export default async function AdminStationsPage({ searchParams }: { searchParams
                         </td>
                         <td className="px-4 py-3 text-gray-500 text-xs">{s.lat.toFixed(4)}, {s.lng.toFixed(4)}</td>
                         <td className="px-4 py-3">
-                          <DeleteStationButton stationId={s.id} />
+                          <div className="flex gap-2">
+                            <EditStationButton station={{
+                              id: s.id,
+                              address: s.address,
+                              lat: s.lat,
+                              lng: s.lng,
+                              station_type: s.station_type,
+                              opening_time: s.opening_time ?? null,
+                              closing_time: s.closing_time ?? null,
+                            }} />
+                            <DeleteStationButton stationId={s.id} />
+                          </div>
                         </td>
                       </tr>
                     )

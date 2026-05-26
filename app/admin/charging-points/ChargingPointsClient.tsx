@@ -7,8 +7,6 @@ import {
   addAdminStation,
   deleteChargingPoint,
   deleteGeoStation,
-  updateProviderStationAddress,
-  updateGeoStationAddress,
   updateProviderStationLocation,
   updateGeoStationLocation,
   sendFeedbackEmail,
@@ -16,14 +14,6 @@ import {
 } from './actions'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
-
-function PencilIcon() {
-  return (
-    <svg className="w-3.5 h-3.5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-    </svg>
-  )
-}
 
 function PinIcon() {
   return (
@@ -134,13 +124,16 @@ function DeleteReviewButton({ ratingId, onDeleted }: { ratingId: string; onDelet
 function LocationPickerMap({
   initialLat,
   initialLng,
+  jumpTo,
   onPick,
 }: {
   initialLat: number | null
   initialLng: number | null
+  jumpTo: { lat: number; lng: number } | null
   onPick: (lat: number, lng: number) => void
 }) {
   const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<google.maps.Map | null>(null)
   const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null)
   const onPickRef = useRef(onPick)
   onPickRef.current = onPick
@@ -159,6 +152,7 @@ function LocationPickerMap({
       disableDefaultUI: true,
       zoomControl: true,
     })
+    mapInstanceRef.current = map
 
     const { AdvancedMarkerElement } = (await google.maps.importLibrary('marker')) as google.maps.MarkerLibrary
 
@@ -193,6 +187,16 @@ function LocationPickerMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Pan map + move marker when geocode provides a new location
+  useEffect(() => {
+    if (!jumpTo || !mapInstanceRef.current) return
+    mapInstanceRef.current.setCenter({ lat: jumpTo.lat, lng: jumpTo.lng })
+    mapInstanceRef.current.setZoom(15)
+    if (markerRef.current) {
+      markerRef.current.position = { lat: jumpTo.lat, lng: jumpTo.lng }
+    }
+  }, [jumpTo])
+
   return (
     <div ref={mapRef} className="w-full h-44 rounded-xl overflow-hidden cursor-crosshair border border-white/10" />
   )
@@ -200,13 +204,23 @@ function LocationPickerMap({
 
 // ─── Edit location modal ──────────────────────────────────────────────────────
 
-function EditLocationModal({ row, onClose }: { row: StationRow; onClose: () => void }) {
+function EditLocationModal({
+  row,
+  onClose,
+  onSaved,
+}: {
+  row: StationRow
+  onClose: () => void
+  onSaved: (updates: { address: string; lat: number; lng: number }) => void
+}) {
   const initialLat = row.source === 'provider' ? row.providerLat : row.geoLat
   const initialLng = row.source === 'provider' ? row.providerLng : row.geoLng
 
   const [address, setAddress] = useState(row.address)
   const [lat, setLat] = useState<number | null>(initialLat)
   const [lng, setLng] = useState<number | null>(initialLng)
+  // jumpTo triggers the map to pan + move marker after geocode
+  const [jumpTo, setJumpTo] = useState<{ lat: number; lng: number } | null>(null)
   const [geocoding, setGeocoding] = useState(false)
   const [geocodeError, setGeocodeError] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -218,12 +232,11 @@ function EditLocationModal({ row, onClose }: { row: StationRow; onClose: () => v
     setGeocodeError('')
     try {
       const res = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`)
-      if (!res.ok) setGeocodeError('Address not found.')
-      else {
-        const data = await res.json()
-        setLat(data.lat)
-        setLng(data.lng)
-      }
+      if (!res.ok) { setGeocodeError('Address not found.'); return }
+      const data = await res.json()
+      setLat(data.lat)
+      setLng(data.lng)
+      setJumpTo({ lat: data.lat, lng: data.lng })   // ← pan map to result
     } catch {
       setGeocodeError('Failed to geocode.')
     } finally {
@@ -241,8 +254,8 @@ function EditLocationModal({ row, onClose }: { row: StationRow; onClose: () => v
         row.source === 'provider'
           ? await updateProviderStationLocation(row.providerId!, lat, lng, trimmed)
           : await updateGeoStationLocation(row.geoLat!, row.geoLng!, lat, lng, trimmed)
-      if (result.error) setError(result.error)
-      else onClose()
+      if (result.error) { setError(result.error); return }
+      onSaved({ address: trimmed, lat, lng })        // ← update parent state
     })
   }
 
@@ -263,6 +276,7 @@ function EditLocationModal({ row, onClose }: { row: StationRow; onClose: () => v
               <input
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); geocodeAddress() } }}
                 placeholder="Enter address…"
                 className="flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white outline-none focus:border-cyan-400 placeholder:text-gray-500"
               />
@@ -280,9 +294,14 @@ function EditLocationModal({ row, onClose }: { row: StationRow; onClose: () => v
 
           <div className="space-y-1">
             <p className="text-xs text-gray-400 uppercase tracking-wider">Click map to pick location</p>
-            <LocationPickerMap initialLat={lat} initialLng={lng} onPick={(newLat, newLng) => { setLat(newLat); setLng(newLng) }} />
+            <LocationPickerMap
+              initialLat={initialLat}
+              initialLng={initialLng}
+              jumpTo={jumpTo}
+              onPick={(newLat, newLng) => { setLat(newLat); setLng(newLng) }}
+            />
             {lat !== null && lng !== null && (
-              <p className="text-xs text-green-400">Selected: {lat.toFixed(5)}, {lng.toFixed(5)}</p>
+              <p className="text-xs text-green-400">📍 {lat.toFixed(5)}, {lng.toFixed(5)}</p>
             )}
           </div>
 
@@ -301,63 +320,6 @@ function EditLocationModal({ row, onClose }: { row: StationRow; onClose: () => v
             </button>
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Edit address modal ───────────────────────────────────────────────────────
-
-function EditAddressModal({ row, onClose }: { row: StationRow; onClose: () => void }) {
-  const [address, setAddress] = useState(row.address)
-  const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState('')
-
-  function handleSubmit() {
-    const trimmed = address.trim()
-    if (!trimmed) { setError('Address cannot be empty.'); return }
-    setError('')
-    startTransition(async () => {
-      const result =
-        row.source === 'provider'
-          ? await updateProviderStationAddress(row.providerId!, trimmed)
-          : await updateGeoStationAddress(row.geoLat!, row.geoLng!, trimmed)
-      if (result.error) setError(result.error)
-      else onClose()
-    })
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-gray-900 shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <h2 className="text-base font-bold text-white">Edit Address</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl font-bold">×</button>
-        </div>
-        <form onSubmit={(e) => { e.preventDefault(); handleSubmit() }} className="px-6 py-5 space-y-4">
-          {row.geoName && (
-            <p className="text-sm text-gray-400">Station: <span className="text-gray-200">{row.geoName}</span></p>
-          )}
-          <div className="space-y-1">
-            <label className="text-xs text-gray-400 uppercase tracking-wider">Address</label>
-            <input
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              required
-              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white outline-none focus:border-cyan-400"
-            />
-          </div>
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-gray-300 hover:bg-white/5 transition">Cancel</button>
-            <button type="submit" disabled={isPending} className="flex-1 py-2.5 rounded-xl bg-cyan-600 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition">
-              {isPending ? 'Saving…' : 'Save'}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   )
@@ -487,13 +449,11 @@ function AddStationModal({ onClose }: { onClose: () => void }) {
 
 function StationDetail({
   row,
-  onEditAddress,
   onEditLocation,
   onDeleteReview,
   onDeleteStation,
 }: {
   row: StationRow
-  onEditAddress: () => void
   onEditLocation: () => void
   onDeleteReview: (ratingId: string) => void
   onDeleteStation: () => void
@@ -649,23 +609,13 @@ function StationDetail({
             <span className="text-cyan-400 font-medium">Gov.il</span> and is subject to changes only.
           </p>
         ) : (
-          <>
-            <button
-              onClick={onEditAddress}
-              className="w-full rounded-xl px-4 py-3 text-sm font-medium flex items-center justify-between bg-white/4 border border-white/[0.07] text-gray-300 hover:bg-white/[0.07] hover:text-white transition"
-            >
-              Edit Address
-              <PencilIcon />
-            </button>
-
-            <button
-              onClick={onEditLocation}
-              className="w-full rounded-xl px-4 py-3 text-sm font-medium flex items-center justify-between bg-white/4 border border-white/[0.07] text-gray-300 hover:bg-white/[0.07] hover:text-white transition"
-            >
-              Edit Location
-              <PinIcon />
-            </button>
-          </>
+          <button
+            onClick={onEditLocation}
+            className="w-full rounded-xl px-4 py-3 text-sm font-medium flex items-center justify-between bg-white/4 border border-white/[0.07] text-gray-300 hover:bg-white/[0.07] hover:text-white transition"
+          >
+            Edit Location
+            <PinIcon />
+          </button>
         )}
 
         <div className="flex-1" />
@@ -690,7 +640,6 @@ export default function ChargingPointsClient({ rows: initialRows }: { rows: Stat
   const [selected, setSelected] = useState<StationRow | null>(null)
   const [showFilterMenu, setShowFilterMenu] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [editAddressRow, setEditAddressRow] = useState<StationRow | null>(null)
   const [editLocationRow, setEditLocationRow] = useState<StationRow | null>(null)
 
   const [filterSource, setFilterSource] = useState<Set<'provider' | 'geo'>>(new Set(['provider', 'geo']))
@@ -892,7 +841,6 @@ export default function ChargingPointsClient({ rows: initialRows }: { rows: Stat
               <StationDetail
                 key={selected.key}
                 row={selected}
-                onEditAddress={() => setEditAddressRow(selected)}
                 onEditLocation={() => setEditLocationRow(selected)}
                 onDeleteReview={(ratingId) => handleDeleteReview(selected.key, ratingId)}
                 onDeleteStation={() => handleDeleteStation(selected)}
@@ -907,8 +855,28 @@ export default function ChargingPointsClient({ rows: initialRows }: { rows: Stat
       </div>
 
       {showAddModal && <AddStationModal onClose={() => setShowAddModal(false)} />}
-      {editAddressRow && <EditAddressModal row={editAddressRow} onClose={() => setEditAddressRow(null)} />}
-      {editLocationRow && <EditLocationModal row={editLocationRow} onClose={() => setEditLocationRow(null)} />}
+      {editLocationRow && (
+        <EditLocationModal
+          row={editLocationRow}
+          onClose={() => setEditLocationRow(null)}
+          onSaved={(updates) => {
+            const applyUpdates = (r: StationRow): StationRow => {
+              if (r.key !== editLocationRow.key) return r
+              return {
+                ...r,
+                address: updates.address,
+                providerLat: r.source === 'provider' ? updates.lat : r.providerLat,
+                providerLng: r.source === 'provider' ? updates.lng : r.providerLng,
+                geoLat: r.source === 'geo' ? updates.lat : r.geoLat,
+                geoLng: r.source === 'geo' ? updates.lng : r.geoLng,
+              }
+            }
+            setLocalRows((prev) => prev.map(applyUpdates))
+            setSelected((prev) => (prev ? applyUpdates(prev) : null))
+            setEditLocationRow(null)
+          }}
+        />
+      )}
     </div>
   )
 }
