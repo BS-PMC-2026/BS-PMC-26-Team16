@@ -6,6 +6,8 @@ import { deleteProviderStation } from '@/app/admin/stations/actions'
 import AdminProfileForm from '@/app/User/AdminProfileForm'
 import StationMiniMap from '@/app/admin/StationMiniMap'
 import { createClient } from '@/lib/supabase/client'
+import ChargingPointsClient from './charging-points/ChargingPointsClient'
+import type { StationRow } from './charging-points/types'
 
 export type PendingUser = {
   id: string
@@ -44,11 +46,12 @@ type Props = {
   adminEmail: string
   pendingUsers: PendingUser[]
   stations: StationWithOwner[]
+  managedStations: StationRow[]
   totalActiveUsers: number
   totalMapStations: number
 }
 
-export default function AdminDashboard({ adminFirstName, adminLastName, adminEmail, pendingUsers, stations, totalActiveUsers, totalMapStations }: Props) {
+export default function AdminDashboard({ adminFirstName, adminLastName, adminEmail, pendingUsers, stations, managedStations, totalActiveUsers, totalMapStations }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('users')
   const [localUsers, setLocalUsers] = useState(pendingUsers)
@@ -183,6 +186,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
 
   const [showProfile, setShowProfile] = useState(false)
   const [showUserMgmt, setShowUserMgmt] = useState(false)
+  const [showStationMgmt, setShowStationMgmt] = useState(false)
   const [allUsers, setAllUsers] = useState<{ id: string; first_name: string | null; last_name: string | null; email: string; phone: string | null; user_type: string; is_approved: boolean }[]>([])
   const [userSearch, setUserSearch] = useState('')
   const [usersLoading, setUsersLoading] = useState(false)
@@ -327,6 +331,36 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
         </div>
       )}
 
+      {/* Station management modal */}
+      {showStationMgmt && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm px-4 py-3"
+          onClick={() => setShowStationMgmt(false)}
+        >
+          <div
+            className="w-[min(1500px,96vw)] h-[calc(100dvh-1.5rem)] max-h-[calc(100dvh-1.5rem)] rounded-2xl bg-[#0b0f17] border border-white/10 shadow-2xl flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-white/8 bg-white/[0.025] shrink-0">
+              <div>
+                <p className="text-base font-bold text-white">Manage Stations</p>
+                <p className="text-xs text-gray-500 mt-0.5">Browse stations, inspect details, and review customer feedback.</p>
+              </div>
+              <button
+                onClick={() => setShowStationMgmt(false)}
+                className="w-9 h-9 rounded-xl border border-white/8 bg-white/[0.04] text-gray-500 hover:text-white hover:bg-white/[0.08] transition flex items-center justify-center"
+                aria-label="Close station management"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ChargingPointsClient rows={managedStations} embedded />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Profile modal */}
       {showProfile && (
         <div
@@ -378,6 +412,15 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
               ⚙
             </span>
             Manage Users
+          </button>
+          <button
+            onClick={() => setShowStationMgmt(true)}
+            className="flex items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/[0.08] px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white transition"
+          >
+            <span className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-[9px] text-amber-400">
+              ⛽
+            </span>
+            Manage Stations
           </button>
         </div>
 

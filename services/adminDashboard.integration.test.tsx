@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AdminDashboard from '../app/admin/AdminDashboard'
 import type { PendingUser, StationWithOwner } from '../app/admin/AdminDashboard'
+import type { StationRow } from '../app/admin/charging-points/types'
 
 /* ── mocks ── */
 
@@ -20,6 +21,10 @@ vi.mock('../app/User/AdminProfileForm', () => ({
 
 vi.mock('../app/admin/StationMiniMap', () => ({
   default: () => <div data-testid="station-mini-map" />,
+}))
+
+vi.mock('../app/admin/charging-points/ChargingPointsClient', () => ({
+  default: () => <div data-testid="station-management-client">Station management content</div>,
 }))
 
 /* ── fixtures ── */
@@ -72,12 +77,37 @@ const stations: StationWithOwner[] = [
   },
 ]
 
+const managedStations: StationRow[] = [
+  {
+    key: 'provider_station-1',
+    source: 'provider',
+    providerId: 'station-1',
+    providerLat: 32.08,
+    providerLng: 34.78,
+    station_type: 'FAST',
+    phone: '0503333333',
+    is_approve: true,
+    opening_time: null,
+    closing_time: null,
+    avg_rating: 5,
+    rating_count: 1,
+    reviews: [],
+    geoLat: null,
+    geoLng: null,
+    geoName: null,
+    geoOperator: null,
+    geoFast: null,
+    address: '123 Main St',
+  },
+]
+
 const defaultProps = {
   adminFirstName: 'Admin',
   adminLastName: 'User',
   adminEmail: 'admin@example.com',
   pendingUsers,
   stations,
+  managedStations,
   totalActiveUsers: 42,
   totalMapStations: 2303,
 }
@@ -140,6 +170,12 @@ describe('header', () => {
   it('renders the "Administrator" subtitle', () => {
     render(<AdminDashboard {...defaultProps} />)
     expect(screen.getByText('Administrator')).toBeInTheDocument()
+  })
+
+  it('opens station management from the dashboard header', () => {
+    render(<AdminDashboard {...defaultProps} />)
+    fireEvent.click(screen.getByRole('button', { name: /manage stations/i }))
+    expect(screen.getByTestId('station-management-client')).toBeInTheDocument()
   })
 })
 

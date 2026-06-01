@@ -3,12 +3,13 @@ import { readFile } from 'fs/promises'
 import path from 'path'
 import { createClient } from '@/lib/supabase/server'
 import AdminDashboard, { type StationWithOwner } from './AdminDashboard'
+import { loadStationRows } from './charging-points/data'
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -23,6 +24,7 @@ export default async function AdminDashboardPage() {
     { data: stationRequests },
     { count: activeUserCount },
     { count: approvedPrivateStationCount },
+    managedStations,
     geojsonRaw,
   ] = await Promise.all([
     supabase
@@ -44,6 +46,7 @@ export default async function AdminDashboardPage() {
       .from('charging_stations')
       .select('*', { count: 'exact', head: true })
       .eq('is_approve', true),
+    loadStationRows(supabase),
     readFile(path.join(process.cwd(), 'public', 'AGG_CHARGE_STATIONS.geojson'), 'utf-8'),
   ])
 
@@ -86,6 +89,7 @@ export default async function AdminDashboardPage() {
       adminEmail={profile.email ?? user.email ?? ''}
       pendingUsers={pendingUsers ?? []}
       stations={stations}
+      managedStations={managedStations}
       totalActiveUsers={activeUserCount ?? 0}
       totalMapStations={geoStationCount + (approvedPrivateStationCount ?? 0)}
     />

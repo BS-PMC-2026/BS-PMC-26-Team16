@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react'
 import Script from 'next/script'
-import type { StationRow, Review } from './page'
+import type { StationRow, Review } from './types'
 import {
   addAdminStation,
   deleteChargingPoint,
@@ -136,7 +136,10 @@ function LocationPickerMap({
   const mapInstanceRef = useRef<google.maps.Map | null>(null)
   const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null)
   const onPickRef = useRef(onPick)
-  onPickRef.current = onPick
+
+  useEffect(() => {
+    onPickRef.current = onPick
+  }, [onPick])
 
   async function initMap() {
     if (!mapRef.current || !window.google) return
@@ -477,9 +480,9 @@ function StationDetail({
   }
 
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden">
+    <div className="flex h-full flex-1 min-h-0 overflow-hidden">
       {/* Detail area */}
-      <div className="flex-1 p-7 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain p-7 [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.45)_transparent]">
         {/* Header */}
         <div className="flex items-start justify-between mb-7">
           <div className="flex-1 mr-4">
@@ -564,7 +567,7 @@ function StationDetail({
                         </span>
                       </div>
                       {review.comment && (
-                        <p className="text-xs text-gray-300 italic">"{review.comment}"</p>
+                        <p className="text-xs text-gray-300 italic">&quot;{review.comment}&quot;</p>
                       )}
                       <div className="flex items-center justify-between gap-2 pt-0.5 flex-wrap">
                         <div className="text-[10px] text-gray-500">
@@ -600,7 +603,7 @@ function StationDetail({
       </div>
 
       {/* Actions sidebar */}
-      <div className="w-52 shrink-0 border-l border-white/6 p-5 flex flex-col gap-3">
+      <div className="w-52 shrink-0 border-l border-white/6 p-5 flex flex-col gap-3 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.45)_transparent]">
         <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Actions</p>
 
         {row.source === 'geo' ? (
@@ -634,7 +637,13 @@ function StationDetail({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function ChargingPointsClient({ rows: initialRows }: { rows: StationRow[] }) {
+export default function ChargingPointsClient({
+  rows: initialRows,
+  embedded = false,
+}: {
+  rows: StationRow[]
+  embedded?: boolean
+}) {
   const [localRows, setLocalRows] = useState(initialRows)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<StationRow | null>(null)
@@ -647,13 +656,28 @@ export default function ChargingPointsClient({ rows: initialRows }: { rows: Stat
   const [filterReview, setFilterReview] = useState<Set<'yes' | 'no'>>(new Set(['yes', 'no']))
 
   function toggleSource(v: 'provider' | 'geo') {
-    setFilterSource((prev) => { const n = new Set(prev); n.has(v) ? n.delete(v) : n.add(v); return n })
+    setFilterSource((prev) => {
+      const n = new Set(prev)
+      if (n.has(v)) n.delete(v)
+      else n.add(v)
+      return n
+    })
   }
   function toggleFastFilter(v: 'yes' | 'no') {
-    setFilterFast((prev) => { const n = new Set(prev); n.has(v) ? n.delete(v) : n.add(v); return n })
+    setFilterFast((prev) => {
+      const n = new Set(prev)
+      if (n.has(v)) n.delete(v)
+      else n.add(v)
+      return n
+    })
   }
   function toggleReviewFilter(v: 'yes' | 'no') {
-    setFilterReview((prev) => { const n = new Set(prev); n.has(v) ? n.delete(v) : n.add(v); return n })
+    setFilterReview((prev) => {
+      const n = new Set(prev)
+      if (n.has(v)) n.delete(v)
+      else n.add(v)
+      return n
+    })
   }
 
   const q = search.toLowerCase().trim()
@@ -670,6 +694,10 @@ export default function ChargingPointsClient({ rows: initialRows }: { rows: Stat
   const providerCount = localRows.filter((r) => r.source === 'provider').length
   const publicCount = localRows.filter((r) => r.source === 'geo').length
   const withReviewCount = localRows.filter((r) => r.rating_count > 0).length
+  const scrollbarClass = '[scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.45)_transparent]'
+  const containerClass = embedded
+    ? 'flex h-full min-h-0 flex-col bg-[#0b0f17] text-white'
+    : 'flex flex-col flex-1 min-h-0 bg-gray-950 text-white'
 
   function handleDeleteStation(row: StationRow) {
     setLocalRows((prev) => prev.filter((r) => r.key !== row.key))
@@ -691,46 +719,48 @@ export default function ChargingPointsClient({ rows: initialRows }: { rows: Stat
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-gray-950 text-white" onClick={() => setShowFilterMenu(false)}>
+    <div className={containerClass} onClick={() => setShowFilterMenu(false)}>
       <Script
         id="google-maps"
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=marker`}
         strategy="afterInteractive"
         onLoad={() => window.dispatchEvent(new Event('google-maps-loaded'))}
       />
-      <div className="flex flex-col flex-1 min-h-0 p-6 gap-5">
+      <div className={`flex flex-col flex-1 min-h-0 overflow-hidden ${embedded ? 'p-4 gap-4' : 'p-6 gap-5'}`}>
 
         {/* Header */}
-        <div className="flex items-center gap-4 shrink-0">
-          <div>
-            <p className="text-2xl font-bold tracking-tight">Charging Points</p>
-            <p className="text-sm text-gray-500 mt-0.5">Administrator</p>
+        {!embedded && (
+          <div className="flex items-center gap-4 shrink-0">
+            <div>
+              <p className="text-2xl font-bold tracking-tight">Manage Stations</p>
+              <p className="text-sm text-gray-500 mt-0.5">Administrator</p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Stats bar */}
-        <div className="flex gap-3 shrink-0 items-center">
+        <div className={`grid shrink-0 gap-2 ${embedded ? 'grid-cols-4' : 'flex items-center'}`}>
           {[
             { label: 'Total Stations', value: localRows.length, color: 'text-cyan-400' },
             { label: 'Provider Stations', value: providerCount, color: 'text-purple-400' },
             { label: 'Public Stations', value: publicCount, color: 'text-blue-400' },
             { label: 'With Reviews', value: withReviewCount, color: 'text-amber-400' },
           ].map(({ label, value, color }, i, arr) => (
-            <div key={label} className="flex items-center gap-2.5">
-              <div className="flex items-baseline gap-2">
-                <span className={`text-base font-bold tabular-nums ${color}`}>{value}</span>
-                <span className="text-xs text-gray-500">{label}</span>
+            <div key={label} className={embedded ? 'rounded-xl border border-white/6 bg-white/[0.035] px-3 py-2' : 'flex items-center gap-2.5'}>
+              <div className={embedded ? 'flex flex-col' : 'flex items-baseline gap-2'}>
+                <span className={`${embedded ? 'text-lg' : 'text-base'} font-bold tabular-nums ${color}`}>{value}</span>
+                <span className="text-xs text-gray-500 truncate">{label}</span>
               </div>
-              {i < arr.length - 1 && <span className="text-white/10 text-sm">|</span>}
+              {!embedded && i < arr.length - 1 && <span className="text-white/10 text-sm">|</span>}
             </div>
           ))}
         </div>
 
         {/* Two-panel layout */}
-        <div className="flex flex-1 min-h-0 gap-4">
+        <div className="flex flex-1 min-h-0 gap-4 overflow-hidden">
 
           {/* Left: list panel */}
-          <div className="w-80 shrink-0 rounded-2xl bg-[#111318] border border-white/6 flex flex-col min-h-0 overflow-hidden">
+          <div className={`${embedded ? 'w-[22rem]' : 'w-80'} shrink-0 rounded-2xl bg-[#111318] border border-white/6 flex flex-col min-h-0 overflow-hidden`}>
 
             {/* List header */}
             <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-white/6">
@@ -791,7 +821,7 @@ export default function ChargingPointsClient({ rows: initialRows }: { rows: Stat
             </div>
 
             {/* Scrollable list */}
-            <div className="flex-1 overflow-y-auto">
+            <div className={`flex-1 overflow-y-auto overscroll-contain ${scrollbarClass}`}>
               {filtered.length === 0 ? (
                 <div className="flex items-center justify-center py-12 text-xs text-gray-700">
                   {search ? 'No stations match.' : 'No stations found.'}
@@ -846,8 +876,16 @@ export default function ChargingPointsClient({ rows: initialRows }: { rows: Stat
                 onDeleteStation={() => handleDeleteStation(selected)}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-sm text-gray-700">
-                Select a station to view details
+              <div className="flex h-full items-center justify-center p-8">
+                <div className="max-w-sm text-center">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-300">
+                    <PinIcon />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-300">Select a station</p>
+                  <p className="mt-2 text-xs leading-relaxed text-gray-600">
+                    Choose a station from the list to view location details, rating history, reviews, and admin actions.
+                  </p>
+                </div>
               </div>
             )}
           </div>

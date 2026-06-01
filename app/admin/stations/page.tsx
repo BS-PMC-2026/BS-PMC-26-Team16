@@ -19,7 +19,7 @@ export default async function AdminStationsPage({ searchParams }: { searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const { data: profile } = await supabase
     .from('profiles')
