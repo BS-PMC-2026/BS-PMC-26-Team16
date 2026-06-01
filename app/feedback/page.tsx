@@ -47,10 +47,10 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Sea
               <div className="space-y-2">
                 <h2 className="text-lg font-bold text-white">Hey,</h2>
                 <p className="text-gray-300 text-sm leading-relaxed">
-                  We were disappointed to see that you didn't like one of the charging points from our service.
+                  We were disappointed to see that you didn&apos;t like one of the charging points from our service.
                 </p>
                 <p className="text-gray-300 text-sm leading-relaxed">
-                  We would love to hear from you what you didn't like, and what we can improve going forward!
+                  We would love to hear from you what you didn&apos;t like, and what we can improve going forward!
                 </p>
               </div>
               <SubmitFeedbackForm ratingId={ratingId} token={token} />

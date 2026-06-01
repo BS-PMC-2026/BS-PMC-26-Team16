@@ -28,7 +28,8 @@ export default async function RootLayout({
 }>) {
   const headerStore = await headers();
   const pathname = headerStore.get("x-pathname");
-  const showNavbar = pathname !== "/";
+  const hideNavbarRoutes = ["/", "/login", "/register", "/forgot-password", "/reset-password"];
+  const showNavbar = !hideNavbarRoutes.includes(pathname ?? "/");
 
   return (
     <html

@@ -42,7 +42,7 @@ export default function SubmitFeedbackForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block text-sm text-gray-300 mb-2">
-          What didn't you like? What can we improve?
+          What didn&apos;t you like? What can we improve?
         </label>
         <textarea
           value={message}

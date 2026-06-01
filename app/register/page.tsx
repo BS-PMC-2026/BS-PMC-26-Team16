@@ -295,10 +295,6 @@ export default function RegisterPage() {
             </div>
             <div className={`register-step-line ${step > 1 ? "active" : ""}`} />
             <div className={`register-step-dot ${step === 2 ? "active" : ""}`}>2</div>
-            <div className="register-step-line" />
-            <div className="register-step-dot">3</div>
-            <div className="register-step-line" />
-            <div className="register-step-dot">4</div>
           </div>
 
           <h1 className="register-title">

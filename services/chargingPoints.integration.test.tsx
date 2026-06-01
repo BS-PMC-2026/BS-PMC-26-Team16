@@ -20,7 +20,7 @@ vi.mock('../app/admin/charging-points/actions', () => ({
 
 /* ── fixtures ── */
 
-import type { StationRow, Review } from '../app/admin/charging-points/page'
+import type { StationRow, Review } from '../app/admin/charging-points/types'
 
 const review1: Review = {
   id: 'rv-1',
