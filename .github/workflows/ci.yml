@@ -5,6 +5,7 @@ on:
     branches: [main, Hackaton_2026]
   pull_request:
     branches: [main, Hackaton_2026]
+  workflow_dispatch:
 
 jobs:
   ci:
@@ -37,3 +38,6 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Build Next.js app
+        run: npm run build
