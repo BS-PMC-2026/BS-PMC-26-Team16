@@ -36,7 +36,19 @@ export type StationWithOwner = {
   slowCount?: number
 }
 
-type Tab = 'users' | 'stations'
+export type ContactMessage = {
+  id: string
+  name: string
+  email: string
+  subject: string
+  message: string
+  status: 'new' | 'resolved'
+  admin_response: string | null
+  created_at: string
+  responded_at: string | null
+}
+
+type Tab = 'users' | 'stations' | 'contacts'
 type UserAction = 'accept' | 'deny' | null
 type StationAction = 'approve' | 'remove' | null
 
@@ -46,18 +58,21 @@ type Props = {
   adminEmail: string
   pendingUsers: PendingUser[]
   stations: StationWithOwner[]
+  contactMessages: ContactMessage[]
   managedStations: StationRow[]
   totalActiveUsers: number
   totalMapStations: number
 }
 
-export default function AdminDashboard({ adminFirstName, adminLastName, adminEmail, pendingUsers, stations, managedStations, totalActiveUsers, totalMapStations }: Props) {
+export default function AdminDashboard({ adminFirstName, adminLastName, adminEmail, pendingUsers, stations, contactMessages, managedStations, totalActiveUsers, totalMapStations }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('users')
   const [localUsers, setLocalUsers] = useState(pendingUsers)
   const [localStations, setLocalStations] = useState(stations)
+  const [localContacts, setLocalContacts] = useState(contactMessages)
   const [selectedUser, setSelectedUser] = useState<PendingUser | null>(pendingUsers[0] ?? null)
   const [selectedStation, setSelectedStation] = useState<StationWithOwner | null>(stations[0] ?? null)
+  const [selectedContact, setSelectedContact] = useState<ContactMessage | null>(contactMessages[0] ?? null)
   const [userAction, setUserAction] = useState<UserAction>(null)
   const [stationAction, setStationAction] = useState<StationAction>(null)
   const [responseText, setResponseText] = useState('')
@@ -91,15 +106,21 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
     return sortOrder === 'newest' ? diff : -diff
   })
   const sortedStations = sortOrder === 'newest' ? localStations : [...localStations].reverse()
+  const sortedContacts = [...localContacts].sort((a, b) => {
+    const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    return sortOrder === 'newest' ? diff : -diff
+  })
   const filteredSortedStations = sortedStations.filter(s =>
     stationTypeFilter.has(s.station_type) && accessFilter.has(s.access_type)
   )
+  const newContactCount = localContacts.filter(message => message.status !== 'resolved').length
 
   function switchTab(t: Tab) {
     setTab(t)
     setFeedback(null)
     setUserAction(null)
     setStationAction(null)
+    setResponseText('')
   }
 
   function selectUser(u: PendingUser) {
@@ -112,6 +133,11 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
   function selectStation(s: StationWithOwner) {
     setSelectedStation(s)
     setStationAction(null)
+    setFeedback(null)
+  }
+
+  function selectContact(message: ContactMessage) {
+    setSelectedContact(message)
     setFeedback(null)
   }
 
@@ -176,6 +202,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
           setFeedback({ msg: data.error || 'Something went wrong.', ok: false })
         }
       }
+
     })
   }
 
@@ -431,6 +458,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
             { label: 'Pending Users', value: localUsers.length, color: 'text-rose-400' },
             { label: 'Stations on Map', value: totalMapStations, color: 'text-cyan-400' },
             { label: 'New Station Requests', value: localStations.length, color: 'text-amber-400' },
+            { label: 'Contact Messages', value: newContactCount, color: 'text-sky-400' },
           ].map(({ label, value, color }, i, arr) => (
             <div key={label} className="flex items-center gap-2.5">
               <div className="flex items-baseline gap-2">
@@ -449,7 +477,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
           <div className="w-80 shrink-0 rounded-2xl bg-[#111318] border border-white/6 flex flex-col min-h-0 overflow-hidden">
             {/* Tabs */}
             <div className="flex shrink-0 border-b border-white/6">
-              {(['users', 'stations'] as Tab[]).map(t => (
+              {(['users', 'stations', 'contacts'] as Tab[]).map(t => (
                 <button
                   key={t}
                   onClick={() => switchTab(t)}
@@ -457,7 +485,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                     tab === t ? 'text-white border-cyan-500' : 'text-gray-600 border-transparent hover:text-gray-400'
                   }`}
                 >
-                  {t === 'users' ? 'User Requests' : 'Charger Requests'}
+                  {t === 'users' ? 'User Requests' : t === 'stations' ? 'Charger Requests' : 'Contact'}
                 </button>
               ))}
             </div>
@@ -466,10 +494,10 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
             <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-white/6">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-gray-300">
-                  {tab === 'users' ? 'Pending Requests' : 'Station Requests'}
+                  {tab === 'users' ? 'Pending Requests' : tab === 'stations' ? 'Station Requests' : 'Contact Messages'}
                 </span>
                 <span className="text-[10px] rounded-full bg-white/10 text-gray-400 px-1.5 py-0.5 font-semibold">
-                  {tab === 'users' ? localUsers.length : filteredSortedStations.length}
+                  {tab === 'users' ? localUsers.length : tab === 'stations' ? filteredSortedStations.length : localContacts.length}
                 </span>
               </div>
               <div className="relative">
@@ -553,6 +581,34 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                     </button>
                   ))
               )}
+              {tab === 'contacts' && (
+                sortedContacts.length === 0
+                  ? <EmptyList label="No contact messages" />
+                  : sortedContacts.map(message => (
+                    <button
+                      key={message.id}
+                      onClick={() => selectContact(message)}
+                      className={`w-full text-left px-4 py-3 border-b border-white/4 transition ${
+                        selectedContact?.id === message.id ? 'bg-white/[0.07]' : 'hover:bg-white/[0.03]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-white leading-tight truncate">{message.name}</p>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full border shrink-0 ${
+                          message.status === 'resolved'
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                            : 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+                        }`}>
+                          {message.status === 'resolved' ? 'Resolved' : 'New'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[10px] text-gray-600 truncate max-w-36">{message.subject}</span>
+                        <span className="text-[10px] text-gray-400">{new Date(message.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                    </button>
+                  ))
+              )}
             </div>
           </div>
 
@@ -629,11 +685,44 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                 </>
               )}
               {tab === 'stations' && !selectedStation && <EmptyCenterPanel label="Select a station to view details" />}
+
+              {tab === 'contacts' && selectedContact && (
+                <>
+                  <div className="flex items-start justify-between mb-7">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-base font-bold">Contact Message</h2>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                        selectedContact.status === 'resolved'
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                          : 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+                      }`}>
+                        {selectedContact.status === 'resolved' ? 'Resolved' : 'New'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-gray-600 font-mono tracking-wide">
+                      {new Date(selectedContact.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className="space-y-5">
+                    <DetailField label="Name" value={selectedContact.name} />
+                    <DetailField label="Email" value={selectedContact.email} />
+                    <DetailField label="Subject" value={selectedContact.subject} />
+                    <hr className="border-white/6" />
+                    <DetailField label="Message" value={selectedContact.message} />
+                    <hr className="border-white/6" />
+                    <DetailField label="Manual reply email" value={selectedContact.email} />
+                  </div>
+                </>
+              )}
+              {tab === 'contacts' && !selectedContact && <EmptyCenterPanel label="Select a contact message to view details" />}
             </div>
 
             {/* ── Response actions (right column) ── */}
+            {tab !== 'contacts' && (
             <div className="w-60 shrink-0 border-l border-white/6 p-5 flex flex-col gap-3">
-              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Request Response</p>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">
+                Request Response
+              </p>
 
               {tab === 'users' ? (
                 <>
@@ -649,14 +738,14 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                     className="w-full rounded-xl bg-black/40 border border-white/[0.07] text-sm text-gray-300 placeholder:text-gray-700 p-3 outline-none focus:border-cyan-500/40 resize-none transition"
                   />
                 </>
-              ) : (
+              ) : tab === 'stations' ? (
                 <>
                   <ActionButton label="Approve" active={stationAction === 'approve'} variant="green" icon="check"
                     onClick={() => setStationAction(stationAction === 'approve' ? null : 'approve')} />
                   <ActionButton label="Remove" active={stationAction === 'remove'} variant="red" icon="x"
                     onClick={() => setStationAction(stationAction === 'remove' ? null : 'remove')} />
                 </>
-              )}
+              ) : null}
 
               <div className="flex-1" />
 
@@ -675,6 +764,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                 <CheckIcon className="w-4 h-4" />
               </button>
             </div>
+            )}
 
           </div>
         </div>
