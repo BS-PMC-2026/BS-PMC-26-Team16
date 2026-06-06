@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
 import type { ProviderStation } from './page'
+import MapVisitPanel from './MapVisitPanel'
+import type { CustomerVisit } from '@/app/User/CustomerActiveVisitPanel'
 
 type PublicStation = {
   type: 'public'
@@ -37,12 +39,18 @@ export default function MapClient({
   const providerMarkersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; stationId: string }[]>([])
   const publicMarkersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; key: string }[]>([])
   const activeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null)
+  const routePolylineRef = useRef<google.maps.Polyline | null>(null)
+
   const [selected, setSelected] = useState<SelectedStation | null>(null)
   const [search, setSearch] = useState('')
   const [searching, setSearching] = useState(false)
   const [favorites, setFavorites] = useState<Set<string>>(new Set(initialFavoriteIds))
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [togglingFav, setTogglingFav] = useState(false)
+  const [routeInfo, setRouteInfo] = useState<{ duration: string; distance: string } | null>(null)
+  const [onMyWayLoading, setOnMyWayLoading] = useState(false)
+  const [onMyWayError, setOnMyWayError] = useState<string | null>(null)
+  const [activeVisit, setActiveVisit] = useState<CustomerVisit | null>(null)
 
   // Refs that are always current — safe to read inside async initMap closure
   const showFavoritesOnlyRef = useRef(false)
@@ -50,36 +58,86 @@ export default function MapClient({
   useEffect(() => { showFavoritesOnlyRef.current = showFavoritesOnly }, [showFavoritesOnly])
   useEffect(() => { favoritesRef.current = favorites }, [favorites])
 
-  // Global handler for "on my way" button
-  useEffect(() => {
-    (window as Window & { stationOnMyWay?: (id: string, lat: number, lng: number, btn: HTMLButtonElement) => void }).stationOnMyWay = async (
-      stationId: string, lat: number, lng: number, btn: HTMLButtonElement
-    ) => {
-      btn.disabled = true
-      btn.textContent = 'Saving...'
-      try {
-        const res = await fetch('/api/station-visit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stationId }),
-        })
-        const data = await res.json()
-        if (res.ok) {
-          btn.textContent = '✅ On my way!'
-          btn.style.background = '#0891b2'
-          window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank')
-        } else {
-          btn.textContent = data.error ?? 'Error'
-          btn.disabled = false
-          btn.style.background = '#dc2626'
-        }
-      } catch {
-        btn.textContent = 'Network error'
-        btn.disabled = false
-      }
+  // Reset nav error when station selection changes
+  useEffect(() => { setOnMyWayError(null) }, [selected])
+
+  function stopNavigation() {
+    if (routePolylineRef.current) {
+      routePolylineRef.current.setMap(null)
+      routePolylineRef.current = null
     }
-    return () => { delete (window as Window & { stationOnMyWay?: unknown }).stationOnMyWay }
-  }, [])
+    setRouteInfo(null)
+  }
+
+  function closePanel() {
+    stopNavigation()
+    setSelected(null)
+    setOnMyWayError(null)
+  }
+
+  async function navigateTo(lat: number, lng: number) {
+    const map = mapInstanceRef.current
+    if (!map || !window.google) return
+
+    const userPos = await new Promise<{ lat: number; lng: number }>((resolve) =>
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve({ lat: 31.4, lng: 34.8 })
+      )
+    )
+
+    stopNavigation()
+
+    const res = await fetch('/api/directions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ originLat: userPos.lat, originLng: userPos.lng, destLat: lat, destLng: lng }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error ?? 'Route not found')
+
+    const { encoding } = await google.maps.importLibrary('geometry') as google.maps.GeometryLibrary
+    const path = encoding.decodePath(data.encodedPolyline)
+
+    const polyline = new google.maps.Polyline({
+      path,
+      strokeColor: '#06b6d4',
+      strokeWeight: 6,
+      strokeOpacity: 0.9,
+      map,
+    })
+    routePolylineRef.current = polyline
+
+    const bounds = new google.maps.LatLngBounds()
+    path.forEach((p: google.maps.LatLng) => bounds.extend(p))
+    map.fitBounds(bounds, { left: 320, top: 20, right: 20, bottom: 20 })
+
+    setRouteInfo({ duration: data.duration, distance: data.distance })
+  }
+
+  async function handleOnMyWay(stationId: string, lat: number, lng: number) {
+    setOnMyWayLoading(true)
+    setOnMyWayError(null)
+    try {
+      const res = await fetch('/api/station-visit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stationId }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setActiveVisit(data.visit)
+        setSelected(null)
+        await navigateTo(lat, lng)
+      } else {
+        setOnMyWayError(data.error ?? 'Error')
+      }
+    } catch {
+      setOnMyWayError('Network error')
+    } finally {
+      setOnMyWayLoading(false)
+    }
+  }
 
   async function handleSearch(e: { preventDefault(): void }) {
     e.preventDefault()
@@ -335,6 +393,94 @@ export default function MapClient({
     }
   }, [showFavoritesOnly, favorites])
 
+  // Action button area for the side panel
+  function renderActionArea() {
+    if (!selected) return null
+
+    if (selected.type === 'private') {
+      if (!selected.station.isOpen) {
+        return <div className="w-full py-3 rounded-xl bg-gray-700 text-gray-400 text-sm font-bold text-center">🌙 Closed now</div>
+      }
+      if (selected.station.isLocked) {
+        return <div className="w-full py-3 rounded-xl bg-purple-900/60 text-purple-300 text-sm font-bold text-center">🔒 Someone is already on the way</div>
+      }
+      if (routeInfo) {
+        return (
+          <div className="space-y-3">
+            <div className="bg-gray-800 rounded-xl p-4">
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Route to station</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-cyan-400 font-bold text-2xl leading-none">{routeInfo.duration}</p>
+                  <p className="text-gray-400 text-sm mt-1">{routeInfo.distance}</p>
+                </div>
+                <span className="text-4xl opacity-60">🚗</span>
+              </div>
+            </div>
+            <button
+              onClick={stopNavigation}
+              className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold text-sm transition"
+            >
+              ✕ Stop Navigation
+            </button>
+          </div>
+        )
+      }
+      return (
+        <div className="space-y-2">
+          {onMyWayError && (
+            <p className="text-red-400 text-xs text-center bg-red-900/20 rounded-lg py-2">{onMyWayError}</p>
+          )}
+          <button
+            onClick={() => {
+              const s = (selected as { type: 'private'; station: ProviderStation }).station
+              handleOnMyWay(s.id, s.lat, s.lng)
+            }}
+            disabled={onMyWayLoading}
+            className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition disabled:opacity-50"
+          >
+            {onMyWayLoading ? '📍 Getting route...' : "I'm on my way 🚗"}
+          </button>
+        </div>
+      )
+    }
+
+    // Public station
+    if (routeInfo) {
+      return (
+        <div className="space-y-3">
+          <div className="bg-gray-800 rounded-xl p-4">
+            <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Route to station</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-cyan-400 font-bold text-2xl leading-none">{routeInfo.duration}</p>
+                <p className="text-gray-400 text-sm mt-1">{routeInfo.distance}</p>
+              </div>
+              <span className="text-4xl opacity-60">🚗</span>
+            </div>
+          </div>
+          <button
+            onClick={stopNavigation}
+            className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold text-sm transition"
+          >
+            ✕ Stop Navigation
+          </button>
+        </div>
+      )
+    }
+    return (
+      <button
+        onClick={() => {
+          const s = selected as PublicStation
+          navigateTo(s.lat, s.lng)
+        }}
+        className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition"
+      >
+        Take Me There 🚗
+      </button>
+    )
+  }
+
   // Side panel content
   const sidePanel = selected && (
     <div className="hidden-scrollbar absolute left-0 top-0 bottom-0 z-10 w-[300px] bg-[#111827] shadow-2xl flex flex-col overflow-hidden">
@@ -356,7 +502,7 @@ export default function MapClient({
           </div>
         )}
         <button
-          onClick={() => setSelected(null)}
+          onClick={closePanel}
           className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition text-lg"
         >✕</button>
         {(() => {
@@ -497,35 +643,7 @@ export default function MapClient({
 
       {/* Action button */}
       <div className="p-4 border-t border-gray-800 shrink-0">
-        {selected.type === 'private' ? (
-          !selected.station.isOpen ? (
-            <div className="w-full py-3 rounded-xl bg-gray-700 text-gray-400 text-sm font-bold text-center">🌙 Closed now</div>
-          ) : selected.station.isLocked ? (
-            <div className="w-full py-3 rounded-xl bg-purple-900/60 text-purple-300 text-sm font-bold text-center">🔒 Someone is already on the way</div>
-          ) : (
-            <button
-              onClick={() => {
-                const s = (selected as { type: 'private'; station: ProviderStation }).station
-                const btn = document.createElement('button')
-                ;(window as Window & { stationOnMyWay?: (id: string, lat: number, lng: number, btn: HTMLButtonElement) => void })
-                  .stationOnMyWay?.(s.id, s.lat, s.lng, btn)
-              }}
-              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition"
-            >
-              I&apos;m on my way 🚗
-            </button>
-          )
-        ) : (
-          <button
-            onClick={() => {
-              const s = selected as PublicStation
-              window.open(`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`, '_blank')
-            }}
-            className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition"
-          >
-            Take Me There 🚗
-          </button>
-        )}
+        {renderActionArea()}
       </div>
     </div>
   )
@@ -579,13 +697,22 @@ export default function MapClient({
 
         {/* Map + side panel */}
         <div className="flex-1 relative min-h-0">
-          {sidePanel}
+          {activeVisit
+            ? (
+              <MapVisitPanel
+                visit={activeVisit}
+                routeInfo={routeInfo}
+                onStopNavigation={stopNavigation}
+                onClose={() => { setActiveVisit(null); stopNavigation() }}
+              />
+            )
+            : sidePanel}
           <div ref={mapRef} className="absolute inset-0" />
         </div>
       </div>
 
       <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=marker&language=en&region=IL`}
+        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=marker,geometry&language=en&region=IL`}
         onLoad={initMap}
       />
     </>

@@ -54,15 +54,19 @@ export async function POST(req: NextRequest) {
   const visitorPhone = profile?.phone ?? null
 
   // Create visit record
-  const { error: visitError } = await supabase.from('station_visits').insert({
-    station_id: stationId,
-    visitor_id: user.id,
-    visitor_name: visitorName,
-    status: 'on_the_way',
-  })
+  const { data: createdVisit, error: visitError } = await supabase
+    .from('station_visits')
+    .insert({
+      station_id: stationId,
+      visitor_id: user.id,
+      visitor_name: visitorName,
+      status: 'on_the_way',
+    })
+    .select('id, created_at')
+    .single()
 
-  if (visitError) {
-    return NextResponse.json({ error: visitError.message }, { status: 500 })
+  if (visitError || !createdVisit) {
+    return NextResponse.json({ error: visitError?.message ?? 'Failed to create visit' }, { status: 500 })
   }
 
   // Notify the provider (only if they're not visiting their own station)
@@ -75,5 +79,14 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({
+    ok: true,
+    visit: {
+      id: createdVisit.id,
+      created_at: createdVisit.created_at,
+      station_address: station.address,
+      status: 'on_the_way',
+      already_rated: false,
+    },
+  })
 }
