@@ -89,7 +89,7 @@ export default function UserDashboard({
 }: Props) {
   const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>(() => {
-    const t = searchParams.get('tab')
+    const t = searchParams?.get('tab')
     if (t === 'station' || t === 'profile' || t === 'reviews') return t
     return 'profile'
   })

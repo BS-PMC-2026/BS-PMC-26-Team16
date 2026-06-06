@@ -250,7 +250,7 @@ describe('charging station profile flows', () => {
       station_type: 'FAST',
       opening_time: '08:00',
       closing_time: '22:00',
-      is_approve: true,
+      is_approve: false,
     })
     expect(revalidatePathMock).toHaveBeenCalledWith('/map')
   })
