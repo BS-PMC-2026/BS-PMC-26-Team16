@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
 import type { ProviderStation } from './page'
+import MapVisitPanel from './MapVisitPanel'
+import type { CustomerVisit } from '@/app/User/CustomerActiveVisitPanel'
 
 type PublicStation = {
   type: 'public'
@@ -48,6 +50,7 @@ export default function MapClient({
   const [routeInfo, setRouteInfo] = useState<{ duration: string; distance: string } | null>(null)
   const [onMyWayLoading, setOnMyWayLoading] = useState(false)
   const [onMyWayError, setOnMyWayError] = useState<string | null>(null)
+  const [activeVisit, setActiveVisit] = useState<CustomerVisit | null>(null)
 
   // Refs that are always current — safe to read inside async initMap closure
   const showFavoritesOnlyRef = useRef(false)
@@ -123,6 +126,8 @@ export default function MapClient({
       })
       const data = await res.json()
       if (res.ok) {
+        setActiveVisit(data.visit)
+        setSelected(null)
         await navigateTo(lat, lng)
       } else {
         setOnMyWayError(data.error ?? 'Error')
@@ -692,7 +697,16 @@ export default function MapClient({
 
         {/* Map + side panel */}
         <div className="flex-1 relative min-h-0">
-          {sidePanel}
+          {activeVisit
+            ? (
+              <MapVisitPanel
+                visit={activeVisit}
+                routeInfo={routeInfo}
+                onStopNavigation={stopNavigation}
+                onClose={() => { setActiveVisit(null); stopNavigation() }}
+              />
+            )
+            : sidePanel}
           <div ref={mapRef} className="absolute inset-0" />
         </div>
       </div>
