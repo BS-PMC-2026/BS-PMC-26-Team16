@@ -62,7 +62,7 @@ export default function ProviderActiveVisitPanel({ visit }: { visit: ActiveVisit
       await cancelVisit(visit.id)
       setCancelled(true)
     })
-  }, [expired, hasArrived, cancelled])
+  }, [expired, hasArrived, cancelled, visit.id])
 
   function handleCancel() {
     setError('')

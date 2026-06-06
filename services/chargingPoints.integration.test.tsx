@@ -191,9 +191,9 @@ describe('station list', () => {
     expect(screen.getAllByText('4').length).toBeGreaterThanOrEqual(2)
   })
 
-  it('shows "Select a station to view details" when nothing is selected', () => {
+  it('shows "Select a station" when nothing is selected', () => {
     render(<ChargingPointsClient rows={defaultRows} />)
-    expect(screen.getByText('Select a station to view details')).toBeInTheDocument()
+    expect(screen.getByText('Select a station')).toBeInTheDocument()
   })
 })
 
@@ -385,23 +385,23 @@ describe('station selection', () => {
   })
 })
 
-/* ─────────────────────────── edit address modal ─────────────────────────── */
+/* ─────────────────────────── edit location modal ─────────────────────────── */
 
-describe('edit address modal', () => {
+describe('edit location modal', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('opens the Edit Address modal when the button is clicked', () => {
+  it('opens the Edit Location modal when the button is clicked', () => {
     render(<ChargingPointsClient rows={defaultRows} />)
     fireEvent.click(screen.getByText('Rothschild 10, Tel Aviv'))
-    fireEvent.click(screen.getByRole('button', { name: /edit address/i }))
-    // Both the action button and the modal heading say "Edit Address"
-    expect(screen.getAllByText('Edit Address').length).toBeGreaterThanOrEqual(2)
+    fireEvent.click(screen.getByRole('button', { name: /edit location/i }))
+    // Both the action button and the modal heading say "Edit Location"
+    expect(screen.getAllByText('Edit Location').length).toBeGreaterThanOrEqual(2)
   })
 
   it('closes the modal when Cancel is clicked', () => {
     render(<ChargingPointsClient rows={defaultRows} />)
     fireEvent.click(screen.getByText('Rothschild 10, Tel Aviv'))
-    fireEvent.click(screen.getByRole('button', { name: /edit address/i }))
+    fireEvent.click(screen.getByRole('button', { name: /edit location/i }))
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
     // Modal heading should be gone
     expect(screen.queryByRole('button', { name: /cancel/i })).not.toBeInTheDocument()
@@ -438,7 +438,7 @@ describe('delete station', () => {
     fireEvent.click(screen.getByText('Rothschild 10, Tel Aviv'))
     fireEvent.click(screen.getByRole('button', { name: /delete station/i }))
     await waitFor(() => {
-      expect(screen.getByText('Select a station to view details')).toBeInTheDocument()
+      expect(screen.getByText('Select a station')).toBeInTheDocument()
     })
   })
 })

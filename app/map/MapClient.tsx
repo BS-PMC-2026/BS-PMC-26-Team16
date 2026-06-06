@@ -58,9 +58,6 @@ export default function MapClient({
   useEffect(() => { showFavoritesOnlyRef.current = showFavoritesOnly }, [showFavoritesOnly])
   useEffect(() => { favoritesRef.current = favorites }, [favorites])
 
-  // Reset nav error when station selection changes
-  useEffect(() => { setOnMyWayError(null) }, [selected])
-
   function stopNavigation() {
     if (routePolylineRef.current) {
       routePolylineRef.current.setMap(null)
@@ -155,14 +152,24 @@ export default function MapClient({
     }
   }
 
+  function updateMarkerVisibility(showFavOnly: boolean, favs: Set<string>) {
+    const map = mapInstanceRef.current
+    if (!map) return
+    for (const { marker, stationId } of providerMarkersRef.current) {
+      marker.map = (!showFavOnly || favs.has(stationId)) ? map : null
+    }
+    for (const { marker, key } of publicMarkersRef.current) {
+      marker.map = (!showFavOnly || favs.has(key)) ? map : null
+    }
+  }
+
   async function toggleFavorite(stationId: string) {
     setTogglingFav(true)
     const isFav = favorites.has(stationId)
-    setFavorites(prev => {
-      const next = new Set(prev)
-      isFav ? next.delete(stationId) : next.add(stationId)
-      return next
-    })
+    const newFavs = new Set(favorites)
+    if (isFav) { newFavs.delete(stationId) } else { newFavs.add(stationId) }
+    setFavorites(newFavs)
+    updateMarkerVisibility(showFavoritesOnly, newFavs)
     try {
       await fetch('/api/favorites', {
         method: 'POST',
@@ -170,12 +177,10 @@ export default function MapClient({
         body: JSON.stringify({ stationId }),
       })
     } catch {
-      // revert on error
-      setFavorites(prev => {
-        const next = new Set(prev)
-        isFav ? next.add(stationId) : next.delete(stationId)
-        return next
-      })
+      const revertedFavs = new Set(newFavs)
+      if (isFav) { revertedFavs.add(stationId) } else { revertedFavs.delete(stationId) }
+      setFavorites(revertedFavs)
+      updateMarkerVisibility(showFavoritesOnly, revertedFavs)
     } finally {
       setTogglingFav(false)
     }
@@ -247,6 +252,7 @@ export default function MapClient({
         if (activeInfoWindowRef.current) activeInfoWindowRef.current.close()
         tooltip.open({ anchor: marker, map })
         activeInfoWindowRef.current = tooltip
+        setOnMyWayError(null)
         setSelected({ type: 'private', station })
       })
 
@@ -349,6 +355,7 @@ export default function MapClient({
         if (activeInfoWindowRef.current) activeInfoWindowRef.current.close()
         pubTooltip.open({ anchor: marker, map })
         activeInfoWindowRef.current = pubTooltip
+        setOnMyWayError(null)
         setSelected({
           type: 'public',
           key: stationKey,
@@ -381,17 +388,6 @@ export default function MapClient({
   }, [])
 
   useEffect(() => { syncProviderMarkers() }, [syncProviderMarkers])
-
-  useEffect(() => {
-    const map = mapInstanceRef.current
-    if (!map) return
-    for (const { marker, stationId } of providerMarkersRef.current) {
-      marker.map = (!showFavoritesOnly || favorites.has(stationId)) ? map : null
-    }
-    for (const { marker, key } of publicMarkersRef.current) {
-      marker.map = (!showFavoritesOnly || favorites.has(key)) ? map : null
-    }
-  }, [showFavoritesOnly, favorites])
 
   // Action button area for the side panel
   function renderActionArea() {
@@ -662,7 +658,11 @@ export default function MapClient({
           </div>
 
           <button
-            onClick={() => setShowFavoritesOnly(v => !v)}
+            onClick={() => {
+              const newVal = !showFavoritesOnly
+              setShowFavoritesOnly(newVal)
+              updateMarkerVisibility(newVal, favorites)
+            }}
             className={`ml-auto shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition border ${
               showFavoritesOnly
                 ? 'bg-cyan-600 border-cyan-500 text-white'
