@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MoreMenu from "./components/MoreMenu";
 
 export default function Home() {
   return (
@@ -12,6 +13,8 @@ export default function Home() {
         <span className="opening-shape opening-shape-six" />
         <span className="opening-shape opening-shape-seven" />
       </div>
+
+      <MoreMenu />
 
       <section className="opening-content" aria-labelledby="opening-title">
         <h1 id="opening-title" className="opening-title">

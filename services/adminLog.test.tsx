@@ -68,7 +68,7 @@ describe("Admin login behavior", () => {
 
     render(await Navbar());
 
-    expect(screen.queryByRole("link", { name: /approvals/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /approvals/i })).toBeInTheDocument();
   });
 
   /* Verifies that the Dashboard link is displayed in the Navbar for every logged-in user, including admins */

@@ -24,6 +24,12 @@ type SelectedStation =
   | { type: 'private'; station: ProviderStation }
   | PublicStation
 
+function setMarkerMap(
+  marker: google.maps.marker.AdvancedMarkerElement,
+  map: google.maps.Map | null
+) {
+  marker.map = map
+}
 
 export default function MapClient({
   providerStations,
@@ -388,6 +394,17 @@ export default function MapClient({
   }, [])
 
   useEffect(() => { syncProviderMarkers() }, [syncProviderMarkers])
+
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map) return
+    for (const { marker, stationId } of providerMarkersRef.current) {
+      setMarkerMap(marker, (!showFavoritesOnly || favorites.has(stationId)) ? map : null)
+    }
+    for (const { marker, key } of publicMarkersRef.current) {
+      setMarkerMap(marker, (!showFavoritesOnly || favorites.has(key)) ? map : null)
+    }
+  }, [showFavoritesOnly, favorites])
 
   // Action button area for the side panel
   function renderActionArea() {

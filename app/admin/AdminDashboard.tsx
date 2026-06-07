@@ -69,7 +69,7 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
   const [tab, setTab] = useState<Tab>('users')
   const [localUsers, setLocalUsers] = useState(pendingUsers)
   const [localStations, setLocalStations] = useState(stations)
-  const [localContacts, setLocalContacts] = useState(contactMessages)
+  const [localContacts] = useState(contactMessages)
   const [selectedUser, setSelectedUser] = useState<PendingUser | null>(pendingUsers[0] ?? null)
   const [selectedStation, setSelectedStation] = useState<StationWithOwner | null>(stations[0] ?? null)
   const [selectedContact, setSelectedContact] = useState<ContactMessage | null>(contactMessages[0] ?? null)
