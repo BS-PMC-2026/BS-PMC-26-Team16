@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getStrongPasswordErrors } from "@/services/passwordValidation";
@@ -15,6 +15,17 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setSessionReady(true);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const validate = () => {
     const newErrors: { password?: string[]; confirmPassword?: string } = {};
@@ -30,6 +41,11 @@ export default function ResetPasswordPage() {
     const newErrors = validate();
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
+
+    if (!sessionReady) {
+      setMessage("Failed to reset password. The link may have expired — request a new one.");
+      return;
+    }
 
     setLoading(true);
     setMessage("");
