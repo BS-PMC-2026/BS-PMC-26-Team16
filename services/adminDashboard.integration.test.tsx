@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AdminDashboard from '../app/admin/AdminDashboard'
-import type { PendingUser, StationWithOwner } from '../app/admin/AdminDashboard'
+import type { ContactMessage, PendingUser, StationWithOwner } from '../app/admin/AdminDashboard'
 import type { StationRow } from '../app/admin/charging-points/types'
 
 /* ── mocks ── */
@@ -101,12 +101,27 @@ const managedStations: StationRow[] = [
   },
 ]
 
+const contactMessages: ContactMessage[] = [
+  {
+    id: 'contact-1',
+    name: 'Casey Driver',
+    email: 'casey@example.com',
+    subject: 'Charging issue',
+    message: 'The charger stopped responding.',
+    status: 'new',
+    admin_response: null,
+    created_at: '2026-03-02T10:00:00',
+    responded_at: null,
+  },
+]
+
 const defaultProps = {
   adminFirstName: 'Admin',
   adminLastName: 'User',
   adminEmail: 'admin@example.com',
   pendingUsers,
   stations,
+  contactMessages,
   managedStations,
   totalActiveUsers: 42,
   totalMapStations: 2303,
