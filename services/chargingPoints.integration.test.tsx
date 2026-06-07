@@ -191,7 +191,7 @@ describe('station list', () => {
     expect(screen.getAllByText('4').length).toBeGreaterThanOrEqual(2)
   })
 
-  it('shows "Select a station" when nothing is selected', () => {
+  it('shows the empty detail prompt when nothing is selected', () => {
     render(<ChargingPointsClient rows={defaultRows} />)
     expect(screen.getByText('Select a station')).toBeInTheDocument()
   })

@@ -219,7 +219,7 @@ describe('charging station profile flows', () => {
     expect(revalidatePathMock).toHaveBeenCalledWith('/admin')
   })
 
-  it('lets only providers register an immediately approved station', async () => {
+  it('lets only providers register a station pending admin approval', async () => {
     const inserts: unknown[] = []
     const supabase = supabaseForRole('provider')
     supabase.from.mockImplementation((table: string) => {

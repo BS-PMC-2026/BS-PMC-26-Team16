@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { readFile } from 'fs/promises'
 import path from 'path'
 import { createClient } from '@/lib/supabase/server'
-import AdminDashboard, { type StationWithOwner } from './AdminDashboard'
+import AdminDashboard, { type ContactMessage, type StationWithOwner } from './AdminDashboard'
 import { loadStationRows } from './charging-points/data'
 
 export default async function AdminDashboardPage() {
@@ -24,6 +24,7 @@ export default async function AdminDashboardPage() {
     { data: stationRequests },
     { count: activeUserCount },
     { count: approvedPrivateStationCount },
+    { data: contactMessages },
     managedStations,
     geojsonRaw,
   ] = await Promise.all([
@@ -46,6 +47,10 @@ export default async function AdminDashboardPage() {
       .from('charging_stations')
       .select('*', { count: 'exact', head: true })
       .eq('is_approve', true),
+    supabase
+      .from('contact_messages')
+      .select('id, name, email, subject, message, status, admin_response, created_at, responded_at')
+      .order('created_at', { ascending: false }),
     loadStationRows(supabase),
     readFile(path.join(process.cwd(), 'public', 'AGG_CHARGE_STATIONS.geojson'), 'utf-8'),
   ])
@@ -89,6 +94,7 @@ export default async function AdminDashboardPage() {
       adminEmail={profile.email ?? user.email ?? ''}
       pendingUsers={pendingUsers ?? []}
       stations={stations}
+      contactMessages={(contactMessages ?? []) as ContactMessage[]}
       managedStations={managedStations}
       totalActiveUsers={activeUserCount ?? 0}
       totalMapStations={geoStationCount + (approvedPrivateStationCount ?? 0)}
