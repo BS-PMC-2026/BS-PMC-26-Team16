@@ -69,6 +69,10 @@ export default async function Navbar() {
                 <NavLink href="/admin" label="Dashboard" emphasis />
               )}
 
+              {isAdmin && (
+                <NavLink href="/admin/approvals" label="Approvals" />
+              )}
+
               {isProvider && <NotificationBell initial={navNotifications} />}
 
               <LogoutButton />

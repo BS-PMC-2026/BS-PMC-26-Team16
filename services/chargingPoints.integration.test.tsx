@@ -385,7 +385,7 @@ describe('station selection', () => {
   })
 })
 
-/* ─────────────────────────── edit address modal ─────────────────────────── */
+/* ─────────────────────────── edit location modal ─────────────────────────── */
 
 describe('edit location modal', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -394,6 +394,7 @@ describe('edit location modal', () => {
     render(<ChargingPointsClient rows={defaultRows} />)
     fireEvent.click(screen.getByText('Rothschild 10, Tel Aviv'))
     fireEvent.click(screen.getByRole('button', { name: /edit location/i }))
+    // Both the action button and the modal heading say "Edit Location"
     expect(screen.getAllByText('Edit Location').length).toBeGreaterThanOrEqual(2)
   })
 

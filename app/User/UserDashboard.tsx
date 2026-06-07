@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import type { ReactNode } from 'react'
 import CustomerActiveVisitPanel from './CustomerActiveVisitPanel'
 import CustomerProfileForm from './CustomerProfileForm'
@@ -86,7 +87,12 @@ export default function UserDashboard({
   notifications,
   reviews,
 }: Props) {
-  const [tab, setTab] = useState<Tab>('profile')
+  const searchParams = useSearchParams()
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = searchParams?.get('tab')
+    if (t === 'station' || t === 'profile' || t === 'reviews') return t
+    return 'profile'
+  })
   const fullName = `${firstName} ${lastName}`.trim() || 'User'
   const stationForDisplay = chargingStation ?? customerStationRequest
   const profilePanelTitle = role === 'provider' ? 'Service Provider Profile' : 'Profile Details'
