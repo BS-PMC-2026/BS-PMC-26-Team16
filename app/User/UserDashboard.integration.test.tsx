@@ -12,8 +12,8 @@ vi.mock('./ProviderProfileForm', () => ({
   default: () => <div data-testid="provider-profile-form">Provider profile form</div>,
 }))
 
-vi.mock('./CustomerStationRequestForm', () => ({
-  default: () => <div data-testid="customer-station-request-form">Customer station request form</div>,
+vi.mock('./ServiceProviderRequestForm', () => ({
+  default: () => <div data-testid="service-provider-request-form">Service provider request form</div>,
 }))
 
 vi.mock('./ChargingStationForm', () => ({
@@ -38,6 +38,7 @@ const baseProps = {
   email: 'ada@example.com',
   phone: '0501234567',
   statusLabel: 'Approved',
+  providerRequestPending: false,
   providerActiveVisit: null,
   customerVisit: null,
   notifications: [],
