@@ -5,14 +5,14 @@ import { useSearchParams } from 'next/navigation'
 import type { ReactNode } from 'react'
 import CustomerActiveVisitPanel from './CustomerActiveVisitPanel'
 import CustomerProfileForm from './CustomerProfileForm'
-import CustomerStationRequestForm from './CustomerStationRequestForm'
 import ProviderActiveVisitPanel from './ProviderActiveVisitPanel'
 import ProviderNotificationsPanel from './ProviderNotificationsPanel'
 import ProviderProfileForm from './ProviderProfileForm'
 import ChargingStationForm from './ChargingStationForm'
+import ServiceProviderRequestForm from './ServiceProviderRequestForm'
 
 type UserRole = 'customer' | 'provider'
-type Tab = 'profile' | 'station' | 'reviews'
+type Tab = 'profile' | 'station' | 'status' | 'reviews'
 
 type ChargingStation = {
   id: string
@@ -64,6 +64,7 @@ type Props = {
   role: UserRole
   roleLabel: string
   statusLabel: string
+  providerRequestPending: boolean
   chargingStation: ChargingStation | null
   customerStationRequest: ChargingStation | null
   providerActiveVisit: ProviderVisit | null
@@ -80,6 +81,7 @@ export default function UserDashboard({
   role,
   roleLabel,
   statusLabel,
+  providerRequestPending,
   chargingStation,
   customerStationRequest,
   providerActiveVisit,
@@ -90,7 +92,7 @@ export default function UserDashboard({
   const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams?.get('tab')
-    if (t === 'station' || t === 'profile' || t === 'reviews') return t
+    if (t === 'station' || t === 'profile' || t === 'reviews' || t === 'status') return t
     return 'profile'
   })
   const fullName = `${firstName} ${lastName}`.trim() || 'User'
@@ -135,6 +137,7 @@ export default function UserDashboard({
               <TabButton active={tab === 'profile'} label="Profile Details" onClick={() => setTab('profile')} />
               <TabButton active={tab === 'station'} label="My Charging Point" onClick={() => setTab('station')} />
               <TabButton active={tab === 'reviews'} label="My Charging Point Reviews" onClick={() => setTab('reviews')} />
+              <TabButton active={tab === 'status'} label="Status" onClick={() => setTab('status')} />
             </nav>
 
             <div className="mt-auto border-t border-white/6 p-4">
@@ -176,21 +179,35 @@ export default function UserDashboard({
                   subtitle={
                     role === 'provider'
                       ? 'Manage the charging point customers can find on the map.'
-                      : 'Request approval for your home charging point.'
+                      : 'Request to become a service provider and add your charging station.'
                   }
                 >
                   {role === 'provider' ? (
                     <>
-                      {customerVisit && <CustomerActiveVisitPanel visit={customerVisit} />}
                       <ChargingStationForm existingStation={chargingStation} />
                       {providerActiveVisit && <ProviderActiveVisitPanel visit={providerActiveVisit} />}
                       <ProviderNotificationsPanel notifications={notifications} />
                     </>
                   ) : (
-                    <>
-                      <CustomerStationRequestForm existingRequest={customerStationRequest} />
-                      {customerVisit && <CustomerActiveVisitPanel visit={customerVisit} />}
-                    </>
+                    <ServiceProviderRequestForm
+                      providerRequestPending={providerRequestPending}
+                    />
+                  )}
+                </Panel>
+              )}
+
+              {tab === 'status' && (
+                <Panel
+                  title="Status"
+                  subtitle="Track your active charging session."
+                >
+                  {customerVisit ? (
+                    <CustomerActiveVisitPanel visit={customerVisit} />
+                  ) : (
+                    <EmptyState
+                      title="No active session"
+                      text="Your active charging sessions will appear here. Navigate to a station from the map to start a session."
+                    />
                   )}
                 </Panel>
               )}

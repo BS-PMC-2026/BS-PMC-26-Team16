@@ -30,7 +30,7 @@ export default async function AdminDashboardPage() {
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, first_name, last_name, email, phone, id_number, user_type, request_reason, created_at')
+      .select('id, first_name, last_name, email, phone, id_number, user_type, request_reason, provider_request_reason, created_at')
       .eq('is_approved', false)
       .order('created_at', { ascending: false }),
     supabase

@@ -21,12 +21,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    const { error: deleteError } = await supabase
+    const { data: targetProfile } = await supabase
       .from('profiles')
-      .delete()
+      .select('user_type, provider_request_reason')
       .eq('id', userId)
+      .single()
 
-    if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
+    const isProviderUpgrade =
+      targetProfile?.user_type === 'customer' &&
+      targetProfile?.provider_request_reason != null
+
+    if (isProviderUpgrade) {
+      // Restore the customer's approved status and clear the request
+      const { error: restoreError } = await supabase
+        .from('profiles')
+        .update({ is_approved: true, provider_request_reason: null })
+        .eq('id', userId)
+
+      if (restoreError) return NextResponse.json({ error: restoreError.message }, { status: 500 })
+    } else {
+      const { error: deleteError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
+
+      if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
+    }
 
     revalidatePath('/admin')
 

@@ -103,7 +103,7 @@ export default function MapVisitPanel({
     startTransition(async () => {
       const result = await markArrived(visit.id)
       if (result.error) { setError(result.error); return }
-      router.push('/User?tab=station')
+      router.push('/User?tab=status')
     })
   }
 

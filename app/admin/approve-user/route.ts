@@ -47,9 +47,23 @@ export async function POST(req: Request) {
       );
     }
 
+    const { data: targetProfile } = await supabase
+      .from("profiles")
+      .select("user_type, provider_request_reason")
+      .eq("id", userId)
+      .single();
+
+    const isProviderUpgrade =
+      targetProfile?.user_type === "customer" &&
+      targetProfile?.provider_request_reason != null;
+
+    const updatePayload = isProviderUpgrade
+      ? { is_approved: true, user_type: "provider", provider_request_reason: null }
+      : { is_approved: true };
+
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({ is_approved: true })
+      .update(updatePayload)
       .eq("id", userId);
 
     if (updateError) {
@@ -59,7 +73,7 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, isProviderUpgrade });
   } catch {
     return NextResponse.json(
       { error: "Unexpected server error" },

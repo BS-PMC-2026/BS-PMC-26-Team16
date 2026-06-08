@@ -597,3 +597,48 @@ export async function submitRating(
   revalidatePath('/User')
   return {}
 }
+
+type ProviderRequestState = { message: string; success: boolean }
+
+export async function requestProviderStatus(
+  _prev: ProviderRequestState,
+  formData: FormData
+): Promise<ProviderRequestState> {
+  const reason = String(formData.get('reason') ?? '').trim()
+  if (!reason) {
+    return { message: 'Please provide a reason for your request.', success: false }
+  }
+
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { message: 'You must be signed in.', success: false }
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('user_type, is_approved')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || profile.user_type !== 'customer') {
+    return { message: 'Only customers can request service provider status.', success: false }
+  }
+
+  if (!profile.is_approved) {
+    return { message: 'Your account must be approved before requesting service provider status.', success: false }
+  }
+
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ provider_request_reason: reason, is_approved: false })
+    .eq('id', user.id)
+
+  if (updateError) {
+    return { message: updateError.message, success: false }
+  }
+
+  revalidatePath('/User')
+  revalidatePath('/admin')
+  return { message: 'Request submitted. An admin will review it soon.', success: true }
+}

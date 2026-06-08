@@ -17,7 +17,7 @@ export default async function DashboardPage() {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('first_name, last_name, email, user_type, is_approved, phone')
+    .select('first_name, last_name, email, user_type, is_approved, phone, provider_request_reason')
     .eq('id', user.id)
     .single()
 
@@ -131,12 +131,12 @@ export default async function DashboardPage() {
   }
 
   // Visitor: find this user's active or recently-completed visit, for both customers and providers
-  let customerVisit: { id: string; station_address: string; created_at: string; status: 'on_the_way' | 'arrived' | 'completed'; already_rated: boolean } | null = null
+  let customerVisit: { id: string; station_address: string; created_at: string; status: 'on_the_way' | 'arrived'; already_rated: boolean } | null = null
   const { data: visit } = await supabase
     .from('station_visits')
     .select('id, station_id, created_at, status')
     .eq('visitor_id', user.id)
-    .in('status', ['on_the_way', 'arrived', 'completed'])
+    .in('status', ['on_the_way', 'arrived'])
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -148,21 +148,12 @@ export default async function DashboardPage() {
       .eq('id', visit.station_id)
       .single()
 
-    const { data: existingRating } = await supabase
-      .from('ratings')
-      .select('id')
-      .eq('visit_id', visit.id)
-      .maybeSingle()
-
-    // Show active visits always; completed only if not yet rated
-    if (visit.status !== 'completed' || !existingRating) {
-      customerVisit = {
-        id: visit.id,
-        station_address: stationData?.address ?? 'Unknown address',
-        created_at: visit.created_at,
-        status: visit.status as 'on_the_way' | 'arrived' | 'completed',
-        already_rated: !!existingRating,
-      }
+    customerVisit = {
+      id: visit.id,
+      station_address: stationData?.address ?? 'Unknown address',
+      created_at: visit.created_at,
+      status: visit.status as 'on_the_way' | 'arrived',
+      already_rated: false,
     }
   }
 
@@ -170,6 +161,7 @@ export default async function DashboardPage() {
     ? 'Customer'
     : 'Service Provider'
   const isApproved = profile.is_approved === true
+  const providerRequestPending = isCustomer && profile.provider_request_reason != null
   const statusLabel = isApproved ? 'Approved' : 'Pending approval'
 
   return (
@@ -181,6 +173,7 @@ export default async function DashboardPage() {
       role={isCustomer ? 'customer' : 'provider'}
       roleLabel={roleLabel}
       statusLabel={statusLabel}
+      providerRequestPending={providerRequestPending}
       chargingStation={chargingStation ?? null}
       customerStationRequest={customerStationRequest ?? null}
       providerActiveVisit={providerActiveVisit}

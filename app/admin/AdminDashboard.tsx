@@ -18,6 +18,7 @@ export type PendingUser = {
   id_number: string | null
   user_type: string
   request_reason: string | null
+  provider_request_reason: string | null
   created_at: string
 }
 
@@ -152,7 +153,9 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
         })
         const data = await res.json()
         if (res.ok) {
-          setFeedback({ msg: userAction === 'accept' ? 'User approved.' : 'User denied.', ok: true })
+          const isProviderUpgrade = selectedUser.provider_request_reason != null
+          const acceptMsg = isProviderUpgrade ? 'User approved as Service Provider.' : 'User approved.'
+          setFeedback({ msg: userAction === 'accept' ? acceptMsg : 'User denied.', ok: true })
           setLocalUsers(prev => {
             const next = prev.filter(u => u.id !== selectedUser.id)
             setSelectedUser(next[0] ?? null)
@@ -554,7 +557,14 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                         selectedUser?.id === u.id ? 'bg-white/[0.07]' : 'hover:bg-white/[0.03]'
                       }`}
                     >
-                      <p className="text-sm font-semibold text-white leading-tight">{u.first_name} {u.last_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-white leading-tight">{u.first_name} {u.last_name}</p>
+                        {u.provider_request_reason && (
+                          <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-400 font-semibold">
+                            Provider
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-[10px] text-gray-600">Account Type</span>
                         <span className="text-[10px] text-gray-400 capitalize">{u.user_type}</span>
@@ -620,7 +630,16 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
               {tab === 'users' && selectedUser && (
                 <>
                   <div className="flex items-start justify-between mb-7">
-                    <h2 className="text-base font-bold">User Request</h2>
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-base font-bold">
+                        {selectedUser.provider_request_reason ? 'Provider Upgrade Request' : 'User Request'}
+                      </h2>
+                      {selectedUser.provider_request_reason && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border bg-violet-500/10 border-violet-500/30 text-violet-400">
+                          Provider upgrade
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] text-gray-600 font-mono tracking-wide">
                       {new Date(selectedUser.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
@@ -633,7 +652,11 @@ export default function AdminDashboard({ adminFirstName, adminLastName, adminEma
                     <DetailField label="Phone number" value={selectedUser.phone || '—'} />
                     <DetailField label="Email" value={selectedUser.email} />
                     <hr className="border-white/6" />
-                    <DetailField label="Request reason" value={selectedUser.request_reason?.trim() || '—'} />
+                    {selectedUser.provider_request_reason ? (
+                      <DetailField label="Provider request reason" value={selectedUser.provider_request_reason.trim()} />
+                    ) : (
+                      <DetailField label="Request reason" value={selectedUser.request_reason?.trim() || '—'} />
+                    )}
                   </div>
                 </>
               )}
