@@ -39,6 +39,7 @@ const pendingUsers: PendingUser[] = [
     id_number: '111111111',
     user_type: 'customer',
     request_reason: 'I want to charge my EV.',
+    provider_request_reason: null,
     created_at: '2026-03-01T10:00:00',
   },
   {
@@ -50,6 +51,7 @@ const pendingUsers: PendingUser[] = [
     id_number: '222222222',
     user_type: 'provider',
     request_reason: 'I own a charging station.',
+    provider_request_reason: null,
     created_at: '2026-02-01T10:00:00',
   },
 ]
