@@ -132,11 +132,13 @@ export default async function DashboardPage() {
 
   // Visitor: find this user's active or recently-completed visit, for both customers and providers
   let customerVisit: { id: string; station_address: string; created_at: string; status: 'on_the_way' | 'arrived' | 'completed'; already_rated: boolean } | null = null
+  const twoHoursAgo = new Date(new Date().getTime() - 2 * 60 * 60 * 1000).toISOString()
   const { data: visit } = await supabase
     .from('station_visits')
     .select('id, station_id, created_at, status')
     .eq('visitor_id', user.id)
     .in('status', ['on_the_way', 'arrived', 'completed'])
+    .gte('created_at', twoHoursAgo)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -154,12 +156,10 @@ export default async function DashboardPage() {
       .eq('visit_id', visit.id)
       .maybeSingle()
 
-    const TWO_HOURS = 2 * 60 * 60 * 1000
-    const isRecent = Date.now() - new Date(visit.created_at).getTime() < TWO_HOURS
     const showVisit =
       visit.status === 'on_the_way' ||
       visit.status === 'arrived' ||
-      (visit.status === 'completed' && !existingRating && isRecent)
+      (visit.status === 'completed' && !existingRating)
 
     if (showVisit) {
       customerVisit = {
