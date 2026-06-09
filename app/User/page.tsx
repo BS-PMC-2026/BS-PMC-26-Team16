@@ -155,6 +155,7 @@ export default async function DashboardPage() {
       .maybeSingle()
 
     const TWO_HOURS = 2 * 60 * 60 * 1000
+    // eslint-disable-next-line react-hooks/purity
     const isRecent = Date.now() - new Date(visit.created_at).getTime() < TWO_HOURS
     const showVisit =
       visit.status === 'on_the_way' ||
