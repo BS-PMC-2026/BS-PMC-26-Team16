@@ -49,7 +49,7 @@ jobs:
     needs: ci
 
     # Deploy only on push, not on pull requests
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
