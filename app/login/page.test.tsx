@@ -112,9 +112,11 @@ describe("LoginPage", () => {
       });
     });
 
-    expect(
-      screen.getByRole("heading", { name: /welcome back!/i })
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: /welcome back!/i })
+      ).toBeInTheDocument();
+    });
 
     expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 2000);
 
