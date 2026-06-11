@@ -5,10 +5,28 @@ Built by Team 16 as part of the BS-PMC-2026.
 
 The platform supports three user roles:
 
-Customer - browse map, get directions, save favorites, log visits, and leave reviews.
-Provider - register and manage charging stations and receive visit notifications.
-Admin - approve user registrations and station submissions, manage all users and charging points.
-New users and new stations require admin approval before becoming active.
+## User Roles
+
+### Customer
+- Browse EV charging stations on the map
+- Get navigation and directions to stations
+- Save favorite charging locations
+- Log charging visits
+- Leave ratings and reviews
+
+### Provider
+- Register new charging stations
+- Manage and update station information
+- Monitor station activity
+- Receive notifications when users visit their stations
+
+### Admin
+- Approve or reject new user registrations
+- Approve or reject charging station submissions
+- Manage all users in the system
+- Manage all charging stations and platform data
+
+> Note: New users and newly submitted charging stations must be approved by an administrator before becoming active on the platform.
 
 ## Technologies
 
