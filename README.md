@@ -1,13 +1,13 @@
 # Urban EV - Find A Charger Anywhere
 
-A full-stack web application for electric vehicle owners to discover, navigate to, and review EV charging stations. Built by Team 16 as part of the BS-PMC-2026.
+A full-stack web application for electric vehicle owners  and electric vehicle charging point owners to discover, add, navigate to, and review EV charging stations.
+Built by Team 16 as part of the BS-PMC-2026.
 
 The platform supports three user roles:
 
-- **Customer** - browse map, get directions, save favorites, log visits, and leave reviews.
-- **Provider** - register and manage charging stations and receive visit notifications.
-- **Admin** - approve user registrations and station submissions, manage all users and charging points.
-
+Customer - browse map, get directions, save favorites, log visits, and leave reviews.
+Provider - register and manage charging stations and receive visit notifications.
+Admin - approve user registrations and station submissions, manage all users and charging points.
 New users and new stations require admin approval before becoming active.
 
 ## Technologies
@@ -23,8 +23,8 @@ New users and new stations require admin approval before becoming active.
 ## Azure Deployment
 
 The application can also be deployed to Microsoft Azure.
-```URL
-
+```
+URL: https://urban-ev.azurewebsites.net
 ```
 
 ## Installation
